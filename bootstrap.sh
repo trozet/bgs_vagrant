@@ -40,7 +40,8 @@ cd /opt
 
 echo "Grab Khaleesi settings"
 
-git clone https://gist.github.com/trozet/c5bde608822d8e6b063a.git foreman_ksgen-settings
+git clone https://gist.github.com/e02861a74b5a1505fb38.git foreman_ksgen-settings
 
+cd /opt/khaleesi/
 
-./run.sh --use foreman_ksgen-settings/foreman-opnfv-settings.yml playbooks/opnfv.yml
+./run.sh --use ../foreman_ksgen-settings/opnfv_ksgen_settings.yml playbooks/opnfv.yml
