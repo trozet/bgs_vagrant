@@ -44,4 +44,4 @@ git clone https://gist.github.com/e02861a74b5a1505fb38.git foreman_ksgen-setting
 
 cd /opt/khaleesi/
 
-./run.sh --use ../foreman_ksgen-settings/opnfv_ksgen_settings.yml playbooks/opnfv.yml
+./run.sh --no-logs --use ../foreman_ksgen-settings/opnfv_ksgen_settings.yml playbooks/opnfv.yml
