@@ -102,6 +102,7 @@ for interface in ${output}; do
   if [ ! "$new_ip" ]; then
     continue
   fi
+  interface_ip[$if_counter]=$new_ip
   sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\''/' Vagrantfile
   ((if_counter++))
 done
@@ -122,5 +123,35 @@ else
   deployment_type="multi_network"
 fi
 
+##Edit the ksgen settings appropriately
+##ksgen settings will be stored in /vagrant on the vagrant machine
+##if single node deployment all the variables will have the same ip
+##interface names will be enp0s3, enp0s8, enp0s9 in chef/centos7
+
+##replace private interface parameter
+##private interface will be of hosts, so we need to know the provisioned host interface name
+##we add biosdevname=0, net.ifnames=0 to the kickstart to use regular interface naming convention on hosts
+##replace IP for parameters with next IP that will be given to controller
+##need to add changes here for public network in tempest settings eventually
+if [ "$deployment_type" == "single_network" ]; then
+  sed -i 's/^.*ovs_tunnel_if:.*$/      ovs_tunnel_if: eth0/' opnfv_ksgen_settings.yml
+  private_ip=$(next_ip ${interface_ip[0]})
+  if [ ! "$private_ip" ]; then
+    printf '%s\n' 'build.sh: Unable to find next ip for single network' >&2
+  fi
+  sed -i 's/10.4.9.2/'"$private_ip"'/g' opnfv_ksgen_settings.yml
+  sed -i 's/10.2.84.3/'"$private_ip"'/g' opnfv_ksgen_settings.yml
+elif [ "$deployment_type" == "three_network" ]; then
+  sed -i 's/^.*ovs_tunnel_if:.*$/      ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
+else
+  printf '%s\n' 'build.sh: Unknown network type: $deployment_type' >&2
+  exit 1
+fi
+
+##stand up vagrant
+if ! vagrant up; then
+  printf '%s\n' 'build.sh: Unable to start vagrant' >&2
+  exit 1
+fi
 
 
