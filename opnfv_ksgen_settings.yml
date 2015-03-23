@@ -29,7 +29,7 @@ global_params:
   swift_admin_password: octopus
   swift_shared_secret: octopus
   swift_user_password: octopus
-  trystack_db_password: octopus
+  ovs_tunnel_if: eth1
 foreman:
   seed_values:
     - { name: heat_cfn, oldvalue: true, newvalue: false }
@@ -101,8 +101,6 @@ nodes:
     bmc_pass: root
     ansible_ssh_pass: "Op3nStack"
     admin_password: ""
-    host_params:
-      ovs_tunnel_if: changeme
     groups:
     - compute
     - foreman_nodes
@@ -139,8 +137,6 @@ nodes:
     bmc_pass: root
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
-    host_params:
-      ovs_tunnel_if: changeme
     groups:
     - controller
     - foreman_nodes
