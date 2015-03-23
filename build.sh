@@ -8,6 +8,7 @@
 #Pre-requisties:
 #Supports 3 or 1 interface configuration
 #Target system must be RPM based
+#Ensure the host's kernel is up to date (yum update)
 
 ##functions
 ##find ip of interface
@@ -32,33 +33,67 @@ function next_ip {
 function remove_vagrant_network {
   sed -i 's/^.*'"$1"'.*$//' Vagrantfile
 }
+##END FUNCTIONS
 
-##install kernel-devel
-if ! yum install kernel-devel; then
-  printf '%s\n' 'build.sh: Unable to install kernel-devel package' >&2
+##disable selinux
+/sbin/setenforce 0
+
+##install EPEL
+if ! yum repolist | grep "Extra Packages for Enterprise Linux"; then
+  if ! rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm; then
+    printf '%s\n' 'build.sh: Unable to configure EPEL repo' >&2
+    exit 1
+  fi
+else
+  printf '%s\n' 'build.sh: Skipping EPEL repo as it is already configured.'
+fi
+
+##install dependencies
+if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel kernel-headers kernel-devel dkms; then
+  printf '%s\n' 'build.sh: Unable to install depdency packages' >&2
   exit 1
 fi
 
+##install VirtualBox repo
+cat > /etc/yum.repos.d/virtualbox.repo << EOM
+[virtualbox]
+name=Oracle Linux / RHEL / CentOS-\$releasever / \$basearch - VirtualBox
+baseurl=http://download.virtualbox.org/virtualbox/rpm/el/\$releasever/\$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://www.virtualbox.org/download/oracle_vbox.asc
+skip_if_unavailable = 1
+keepcache = 0
+EOM
+
 ##install VirtualBox
-if ! yum install virtualbox; then
+if ! yum -y install VirtualBox-4.3; then
   printf '%s\n' 'build.sh: Unable to install virtualbox package' >&2
   exit 1
 fi
 
 ##install kmod-VirtualBox
-if ! yum install kmod-VirtualBox; then
-  printf '%s\n' 'build.sh: Unable to install kmod-VirtualBox package' >&2
-  exit 1
+if ! lsmod | grep vboxdrv; then
+  if ! sudo /etc/init.d/vboxdrv setup; then
+    printf '%s\n' 'build.sh: Unable to install kernel module for virtualbox' >&2
+    exit 1
+  fi
+else
+  printf '%s\n' 'build.sh: Skipping kernel module for virtualbox.  Already Installed'
 fi
 
 ##install Vagrant
-if ! yum install vagrant; then
-  printf '%s\n' 'build.sh: Unable to install vagrant package' >&2
-  exit 1
+if ! rpm -qa | grep vagrant; then
+  if ! https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.rpm; then
+    printf '%s\n' 'build.sh: Unable to install vagrant package' >&2
+    exit 1
+  fi
+else
+  printf '%s\n' 'build.sh: Skipping Vagrant install as it is already installed.'
 fi
 
 ##add centos 7 box to vagrant
-if ! vagrant box add chef/centos-7 --provider virtualbox; then
+if ! vagrant box add chef/centos-7.0 --provider virtualbox; then
   printf '%s\n' 'build.sh: Unable to download centos7 box for Vagrant' >&2
   exit 1
 fi
@@ -91,7 +126,7 @@ fi
 if_counter=0
 for interface in ${output}; do
 
-  if [ "$if_counter" >= 3 ]; then
+  if [ "$if_counter" -ge 3 ]; then
     break
   fi
   interface_ip=$(find_ip $interface)
