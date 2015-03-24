@@ -93,9 +93,13 @@ else
 fi
 
 ##add centos 7 box to vagrant
-if ! vagrant box add chef/centos-7.0 --provider virtualbox; then
-  printf '%s\n' 'build.sh: Unable to download centos7 box for Vagrant' >&2
-  exit 1
+if ! vagrant box list | grep chef/centos-7.0; then
+  if ! vagrant box add chef/centos-7.0 --provider virtualbox; then
+    printf '%s\n' 'build.sh: Unable to download centos7 box for Vagrant' >&2
+    exit 1
+  fi
+else
+  printf '%s\n' 'build.sh: Skipping Vagrant box add as centos-7.0 is already installed.'
 fi
 
 ##install workaround for centos7
