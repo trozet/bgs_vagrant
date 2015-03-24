@@ -39,7 +39,7 @@ function remove_vagrant_network {
 /sbin/setenforce 0
 
 ##install EPEL
-if ! yum repolist | grep "Extra Packages for Enterprise Linux"; then
+if ! yum repolist | grep "epel/"; then
   if ! rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm; then
     printf '%s\n' 'build.sh: Unable to configure EPEL repo' >&2
     exit 1
@@ -55,10 +55,16 @@ if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel ke
 fi
 
 ##install VirtualBox repo
+if cat /etc/*release | grep -i "Fedora release"; then
+  vboxurl=http://download.virtualbox.org/virtualbox/rpm/fedora/\$releasever/\$basearch
+else
+  vboxurl=http://download.virtualbox.org/virtualbox/rpm/el/\$releasever/\$basearch
+fi
+
 cat > /etc/yum.repos.d/virtualbox.repo << EOM
 [virtualbox]
 name=Oracle Linux / RHEL / CentOS-\$releasever / \$basearch - VirtualBox
-baseurl=http://download.virtualbox.org/virtualbox/rpm/el/\$releasever/\$basearch
+baseurl=$vboxurl
 enabled=1
 gpgcheck=1
 gpgkey=https://www.virtualbox.org/download/oracle_vbox.asc
@@ -67,9 +73,11 @@ keepcache = 0
 EOM
 
 ##install VirtualBox
-if ! yum -y install VirtualBox-4.3; then
-  printf '%s\n' 'build.sh: Unable to install virtualbox package' >&2
-  exit 1
+if ! yum list installed | grep -i virtualbox; then
+  if ! yum -y install VirtualBox-4.3; then
+    printf '%s\n' 'build.sh: Unable to install virtualbox package' >&2
+    exit 1
+  fi
 fi
 
 ##install kmod-VirtualBox
@@ -84,7 +92,7 @@ fi
 
 ##install Vagrant
 if ! rpm -qa | grep vagrant; then
-  if ! https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.rpm; then
+  if ! rpm -Uvh https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.rpm; then
     printf '%s\n' 'build.sh: Unable to install vagrant package' >&2
     exit 1
   fi
@@ -173,7 +181,7 @@ fi
 ##replace IP for parameters with next IP that will be given to controller
 ##need to add changes here for public network in tempest settings eventually
 if [ "$deployment_type" == "single_network" ]; then
-  sed -i 's/^.*ovs_tunnel_if:.*$/      ovs_tunnel_if: eth0/' opnfv_ksgen_settings.yml
+  sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth0/' opnfv_ksgen_settings.yml
   private_ip=$(next_ip ${interface_ip[0]})
   if [ ! "$private_ip" ]; then
     printf '%s\n' 'build.sh: Unable to find next ip for single network' >&2
@@ -181,7 +189,7 @@ if [ "$deployment_type" == "single_network" ]; then
   sed -i 's/10.4.9.2/'"$private_ip"'/g' opnfv_ksgen_settings.yml
   sed -i 's/10.2.84.3/'"$private_ip"'/g' opnfv_ksgen_settings.yml
 elif [ "$deployment_type" == "three_network" ]; then
-  sed -i 's/^.*ovs_tunnel_if:.*$/      ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
+  sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
 else
   printf '%s\n' 'build.sh: Unknown network type: $deployment_type' >&2
   exit 1
