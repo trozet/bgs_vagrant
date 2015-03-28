@@ -117,6 +117,9 @@ fi
 
 cd /tmp/
 
+##remove bgs vagrant in case it wasn't cleaned up
+rm -rf /tmp/bgs_vagrant
+
 ##clone bgs vagrant
 ##will change this to be opnfv repo when commit is done
 if ! git clone https://github.com/trozet/bgs_vagrant.git; then
