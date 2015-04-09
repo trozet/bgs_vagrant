@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #Deploy script to install provisioning server for Foreman/QuickStack
 #author: Tim Rozet (trozet@redhat.com)
 #
@@ -11,6 +13,11 @@
 #Ensure the host's kernel is up to date (yum update)
 
 ##FUNCTIONS
+display_usage() {
+  echo "This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System" 
+  echo -e "\nUsage:\n$0 [arguments] \n"
+}
+
 ##find ip of interface
 ##params: interface name
 function find_ip {
@@ -19,7 +26,7 @@ function find_ip {
 
 ##increments next IP
 ##params: ip
-##assumes there is room before 255 max
+##assumes a /24 subnet
 function next_ip {
   baseaddr="$(echo $1 | cut -d. -f1-3)"
   lsv="$(echo $1 | cut -d. -f4)"
@@ -38,6 +45,7 @@ function remove_vagrant_network {
 }
 
 ##check if IP is in use
+##params: ip
 ##ping ip to get arp entry, then check arp
 function is_ip_used {
   ping -c 5 $1 > /dev/null 2>&1
@@ -45,6 +53,7 @@ function is_ip_used {
 }
 
 ##find next usable IP
+##params: ip
 function next_usable_ip {
   new_ip=$(next_ip $1)
   while [ "$new_ip" ]; do
@@ -58,6 +67,15 @@ function next_usable_ip {
 }
 
 ##END FUNCTIONS
+
+if [[ ( $1 == "--help") ||  $1 == "-h" ]]; then
+    display_usage
+    exit 0
+fi
+
+echo "This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System"
+echo "Use -h to display help"
+
 
 ##disable selinux
 /sbin/setenforce 0
@@ -141,7 +159,7 @@ fi
 
 cd /tmp/
 
-##remove bgs vagrant in case it wasn't cleaned up
+##remove bgs vagrant incase it wasn't cleaned up
 rm -rf /tmp/bgs_vagrant
 
 ##clone bgs vagrant
