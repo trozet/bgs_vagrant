@@ -35,6 +35,7 @@ Vagrant.configure(2) do |config|
   config.vm.network "public_network", ip: "10.4.1.2", bridge: 'eth_replace0'
   config.vm.network "public_network", ip: "10.4.9.2", bridge: 'eth_replace1'
   config.vm.network "public_network", ip: "10.2.84.2", bridge: 'eth_replace2'
+  config.vm.network "public_network", ip: "10.3.84.2", bridge: 'eth_replace3'
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
