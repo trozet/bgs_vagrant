@@ -66,6 +66,9 @@ function next_usable_ip {
   return 1
 }
 
+##ADD this function
+##increment_ip $next_private_ip 10
+
 ##END FUNCTIONS
 
 if [[ ( $1 == "--help") ||  $1 == "-h" ]]; then
@@ -228,21 +231,56 @@ fi
 ##private interface will be of hosts, so we need to know the provisioned host interface name
 ##we add biosdevname=0, net.ifnames=0 to the kickstart to use regular interface naming convention on hosts
 ##replace IP for parameters with next IP that will be given to controller
-##need to add changes here for public network in tempest settings eventually
 if [ "$deployment_type" == "single_network" ]; then
   sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth0/' opnfv_ksgen_settings.yml
-  private_ip=$(next_ip ${interface_ip[0]})
-  if [ ! "$private_ip" ]; then
-    printf '%s\n' 'build.sh: Unable to find next ip for single network' >&2
-  fi
+  ##we also need to assign IP addresses to nodes
+  ##for single node, foreman is managing the single network, so we can't reserve them
+  ##not supporting single network anymore for now
   sed -i 's/10.4.9.2/'"$private_ip"'/g' opnfv_ksgen_settings.yml
   sed -i 's/10.2.84.3/'"$private_ip"'/g' opnfv_ksgen_settings.yml
+
 elif [ "$deployment_type" == "three_network" ]; then
   sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
   sed -i 's/^.*storage_iface:.*$/  storage_iface: eth1/' opnfv_ksgen_settings.yml
+
 elif [ "$deployment_type" == "multi_network" ]; then
   sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
   sed -i 's/^.*storage_iface:.*$/  storage_iface: eth3/' opnfv_ksgen_settings.yml
+
+  ##get ip addresses for private network on controllers to make dhcp entries
+  ##required for controllers_ip_array global param
+  next_private_ip=$interface_ip[1]
+  type=_private
+  for node in controller1 controller2 controller3; do
+    next_private_ip=$(next_usable_ip $next_private_ip)
+    if [ ! "$next_private_ip" ]; then
+       printf '%s\n' 'build.sh: Unable to find next ip for private network for control nodes' >&2
+       exit 1
+    fi
+    sed -i 's/'"$node$type"'/'"$next_private_ip"'/g' opnfv_ksgen_settings.yml
+    controller_ip_array=$controller_ip_array$next_private_ip,
+  done
+
+  ##replace global param for contollers_ip_array
+  controller_ip_array=${controller_ip_array%?}
+  sed -i 's/^.*controllers_ip_array:.*$/  controllers_ip_array: '"$controller_ip_array"'/' opnfv_ksgen_settings.yml
+
+  ##now replace all the VIP variables.  admin//private can be the same IP
+  ##we have to use IP's here that won't be allocated to hosts at provisioning time
+  ##therefore we increment the ip by 10 to make sure we have a safe buffer
+  next_private_ip=$(increment_ip $next_private_ip 10)
+
+  grep -E '*_vip' opnfv_ksgen_settings.yml | while read -r line ; do
+    sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
+    next_private_ip=$(next_usable_ip $next_private_ip)
+    if [ ! "$next_private_ip" ]; then
+       printf '%s\n' 'build.sh: Unable to find next ip for private network for control nodes' >&2
+       exit 1
+    fi
+  done
+
+  ##replace private_subnet param
+
 else
   printf '%s\n' 'build.sh: Unknown network type: $deployment_type' >&2
   exit 1
