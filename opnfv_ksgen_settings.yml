@@ -3,7 +3,9 @@ global_params:
   ha_flag: true
   odl_flag: true
   ovs_tunnel_if: eth1
+  storage_iface: eth1
   controllers_hostnames_array: oscontroller1,oscontroller2,oscontroller3
+  controllers_ip_array:
   amqp_vip:
   private_subnet:
   cinder_admin_vip:
@@ -114,8 +116,7 @@ nodes:
     bmc_user: root
     bmc_pass: root
     private_ip: controller1_private
-    public_ip: controller1_public
-    storage_ip: controller1_storage
+    private_mac: "11:23:45:67:87:AC"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
@@ -137,8 +138,7 @@ nodes:
     bmc_user: root
     bmc_pass: root
     private_ip: controller2_private
-    public_ip: controller2_public
-    storage_ip: controller2_storage
+    private_mac: "11:23:45:67:87:AD"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
@@ -160,8 +160,7 @@ nodes:
     bmc_user: root
     bmc_pass: root
     private_ip: controller3_private
-    public_ip: controller3_public
-    storage_ip: controller3_storage
+    private_mac: "11:23:45:67:87:AE"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
