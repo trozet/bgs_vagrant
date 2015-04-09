@@ -1,35 +1,32 @@
 global_params:
   admin_email: opnfv@opnfv.com
-  admin_password: octopus
-  amqp_ip: 10.4.9.2
-  ceilometer_metering_secret: octopus
-  ceilometer_user_password: octopus
-  cinder_db_password: octopus
-  cinder_user_password: octopus
-  glance_db_password: octopus
-  glance_user_password: octopus
-  heat_auth_encrypt_key: octopus
-  heat_db_password: octopus
-  heat_user_password: octopus
-  horizon_secret_key: octopus
-  keystone_admin_token: octopus
-  keystone_db_password: octopus
-  memcache_ip: 10.4.9.2
-  mysql_ip: 10.4.9.2
-  mysql_root_password: octopus
-  neutron_db_password: octopus
-  neutron_ip: 10.4.9.2
-  neutron_metadata_shared_secret: octopus
-  neutron_user_password: octopus
-  nova_db_password: octopus
-  nova_user_password: octopus
+  ha_flag: true
   odl_flag: true
-  private_ip: 10.4.9.2
-  public_ip: 10.2.84.3
-  swift_admin_password: octopus
-  swift_shared_secret: octopus
-  swift_user_password: octopus
   ovs_tunnel_if: eth1
+  controllers_hostnames_array: oscontroller1,oscontroller2,oscontroller3
+  amqp_vip:
+  private_subnet:
+  cinder_admin_vip:
+  cinder_private_vip:
+  cinder_public_vip:
+  db_vip:
+  glance_admin_vip:
+  glance_private_vip:
+  glance_public_vip:
+  horizon_admin_vip:
+  horizon_private_vip:
+  horizon_public_vip:
+  keystone_admin_vip:
+  keystone_private_vip:
+  keystone_public_vip:
+  loadbalancer_vip:
+  neutron_admin_vip:
+  neutron_private_vip:
+  neutron_public_vip:
+  nova_admin_vip:
+  nova_private_vip:
+  nova_public_vip:
+network_type: multi_network
 foreman:
   seed_values:
     - { name: heat_cfn, oldvalue: true, newvalue: false }
@@ -51,7 +48,6 @@ tempest:
       '19': http://REPLACE_ME/~REPLACE_ME/openstack-tempest-icehouse/fedora-19/
       '20': http://REPLACE_ME/~REPLACE_ME/openstack-tempest-icehouse/fedora-20/
     RedHat:
-#      '7.0': http://REPLACE_ME/~REPLACE_ME/openstack-tempest-icehouse/epel-7/
        '7.0': https://repos.fedorapeople.org/repos/openstack/openstack-juno/epel-7/
   use_virtual_env: false
   public_allocation_end: 10.2.84.71
@@ -71,8 +67,6 @@ tempest:
   setup_method: tempest/rpm
   test_name: all
   rdo:
-#    version: icehouse
-#    rpm: http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-4.noarch.rpm
      version: juno
      rpm: http://repos.fedorapeople.org/repos/openstack/openstack-juno/rdo-release-juno-1.noarch.rpm
   rpm:
@@ -96,29 +90,13 @@ nodes:
     hostgroup: Compute
     mac_address: "01:23:45:67:89:AB"
     bmc_ip: 10.4.17.2
-    bmc_mac: "01:23:45:67:89:AC"
+    bmc_mac: "01:23:45:67:88:AB"
     bmc_user: root
     bmc_pass: root
     ansible_ssh_pass: "Op3nStack"
     admin_password: ""
     groups:
     - compute
-    - foreman_nodes
-    - puppet
-    - rdo
-    - neutron
-  tempest:
-    name: tempest
-    hostname: tempest1.ci.com
-    short_name: tempest1
-    remote_user: ""
-    type: tempest
-    host_type: virtual
-    hostgroup: Tempest
-    ansible_ssh_pass: "Op3nStack"
-    admin_password: ""
-    groups:
-    - tempest
     - foreman_nodes
     - puppet
     - rdo
@@ -130,11 +108,60 @@ nodes:
     type: controller
     host_type: baremetal
     hostgroup: Controller_Network
-    mac_address: "11:23:45:67:89:AB"
+    mac_address: "11:23:45:67:89:AC"
     bmc_ip: 10.4.17.3
-    bmc_mac: "11:23:45:67:89:AC"
+    bmc_mac: "11:23:45:67:88:AC"
     bmc_user: root
     bmc_pass: root
+    private_ip: controller1_private
+    public_ip: controller1_public
+    storage_ip: controller1_storage
+    ansible_ssh_pass: "Op3nStack"
+    admin_password: "octopus"
+    groups:
+    - controller
+    - foreman_nodes
+    - puppet
+    - rdo
+    - neutron
+  controller:
+    name: oscontroller2.ci.com
+    hostname: oscontroller2.ci.com
+    short_name: oscontroller2
+    type: controller
+    host_type: baremetal
+    hostgroup: Controller_Network
+    mac_address: "11:23:45:67:89:AD"
+    bmc_ip: 10.4.17.4
+    bmc_mac: "11:23:45:67:88:AD"
+    bmc_user: root
+    bmc_pass: root
+    private_ip: controller2_private
+    public_ip: controller2_public
+    storage_ip: controller2_storage
+    ansible_ssh_pass: "Op3nStack"
+    admin_password: "octopus"
+    groups:
+    - controller
+    - foreman_nodes
+    - puppet
+    - rdo
+    - neutron
+  controller:
+    name: oscontroller3.ci.com
+    hostname: oscontroller3.ci.com
+    short_name: oscontroller3
+    type: controller
+    host_type: baremetal
+    hostgroup: Controller_Network
+    mac_address: "11:23:45:67:89:AE"
+    bmc_ip: 10.4.17.4
+    bmc_mac: "11:23:45:67:88:AE"
+    bmc_user: root
+    bmc_pass: root
+    private_ip: controller3_private
+    public_ip: controller3_public
+    storage_ip: controller3_storage
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
