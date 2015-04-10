@@ -11,6 +11,12 @@
 #Supports 4,3 or 1 interface configuration
 #Target system must be RPM based
 #Ensure the host's kernel is up to date (yum update)
+#Provisioned nodes expected to have following order of network connections (note: not all have to exist, but order is maintained):
+#eth0- admin network
+#eth1- private network
+#eth2- public network
+#eth3- storage network
+#script assumes /24 subnet mask
 
 ##FUNCTIONS
 display_usage() {
@@ -270,17 +276,32 @@ elif [ "$deployment_type" == "multi_network" ]; then
   ##therefore we increment the ip by 10 to make sure we have a safe buffer
   next_private_ip=$(increment_ip $next_private_ip 10)
 
-  grep -E '*_vip' opnfv_ksgen_settings.yml | while read -r line ; do
+  grep -E '*private_vip|loadbalancer_vip|db_vip|amqp_vip|*admin_vip' opnfv_ksgen_settings.yml | while read -r line ; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
     next_private_ip=$(next_usable_ip $next_private_ip)
     if [ ! "$next_private_ip" ]; then
-       printf '%s\n' 'build.sh: Unable to find next ip for private network for control nodes' >&2
+       printf '%s\n' 'build.sh: Unable to find next ip for private network for vip replacement' >&2
+       exit 1
+    fi
+  done
+
+  ##replace public_vips
+  next_public_ip=$interface_ip[2]
+  next_public_ip=$(increment_ip $next_public_ip 10)
+  grep -E '*public_vip' opnfv_ksgen_settings.yml | while read -r line ; do
+    sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
+    next_public_ip=$(next_usable_ip $next_public_ip)
+    if [ ! "$next_public_ip" ]; then
+       printf '%s\n' 'build.sh: Unable to find next ip for public network for vip replcement' >&2
        exit 1
     fi
   done
 
   ##replace private_subnet param
-
+  network=.0
+  baseaddr="$(echo $next_private_ip | cut -d. -f1-3)"
+  private_subnet=$baseaddr$network
+  sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"''"\/24"'/' opnfv_ksgen_settings.yml
 else
   printf '%s\n' 'build.sh: Unknown network type: $deployment_type' >&2
   exit 1
