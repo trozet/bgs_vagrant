@@ -72,8 +72,19 @@ function next_usable_ip {
   return 1
 }
 
-##ADD this function
+##increment ip by value
+##params: ip, amount to increment by
 ##increment_ip $next_private_ip 10
+function increment_ip {
+  baseaddr="$(echo $1 | cut -d. -f1-3)"
+  lsv="$(echo $1 | cut -d. -f4)"
+  incrval=$2
+  lsv=$((lsv+incrval))
+  if [ "$lsv" -ge 254 ]; then
+    return 1
+  fi
+  echo $baseaddr.$lsv
+}
 
 ##END FUNCTIONS
 
