@@ -29,6 +29,7 @@ green=`tput setaf 2`
 ##FUNCTIONS
 display_usage() {
   echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
+  echo -e "\n${green}Make sure you have the latest kernel installed before running this script! (yum update kernel +reboot)${reset}\n"
   echo -e "\nUsage:\n$0 [arguments] \n"
 }
 
@@ -101,7 +102,7 @@ if [[ ( $1 == "--help") ||  $1 == "-h" ]]; then
     exit 0
 fi
 
-echo "This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System"
+echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
 echo "Use -h to display help"
 
 
@@ -203,6 +204,7 @@ fi
 
 cd bgs_vagrant
 
+echo "${blue}Detecting network configuration...${reset}"
 ##detect host 1 or 3 interface configuration
 output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
 
@@ -251,6 +253,8 @@ else
   deployment_type="multi_network"
 fi
 
+echo "${blue}Network detected: ${deployment_type}! ${reset}"
+echo "${blue}Gathering network parameters for Target System...this may take a few minutes${reset}"
 ##Edit the ksgen settings appropriately
 ##ksgen settings will be stored in /vagrant on the vagrant machine
 ##if single node deployment all the variables will have the same ip
@@ -329,6 +333,9 @@ else
   printf '%s\n' 'deploy.sh: Unknown network type: $deployment_type' >&2
   exit 1
 fi
+
+echo "${blue}Parameters Complete.  Settings have been set for Foreman. ${reset}"
+echo "${blue}Starting Vagrant! ${reset}"
 
 ##stand up vagrant
 if ! vagrant up; then
