@@ -18,9 +18,17 @@
 #eth3- storage network
 #script assumes /24 subnet mask
 
+##VARS
+reset=`tput sgr0`
+blue=`tput setaf 4`
+red=`tput setaf 1`
+green=`tput setaf 2`
+
+##END VARS
+
 ##FUNCTIONS
 display_usage() {
-  echo "This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System" 
+  echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
   echo -e "\nUsage:\n$0 [arguments] \n"
 }
 
@@ -103,16 +111,16 @@ echo "Use -h to display help"
 ##install EPEL
 if ! yum repolist | grep "epel/"; then
   if ! rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm; then
-    printf '%s\n' 'build.sh: Unable to configure EPEL repo' >&2
+    printf '%s\n' 'deploy.sh: Unable to configure EPEL repo' >&2
     exit 1
   fi
 else
-  printf '%s\n' 'build.sh: Skipping EPEL repo as it is already configured.'
+  printf '%s\n' 'deploy.sh: Skipping EPEL repo as it is already configured.'
 fi
 
 ##install dependencies
 if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel kernel-headers kernel-devel dkms; then
-  printf '%s\n' 'build.sh: Unable to install depdency packages' >&2
+  printf '%s\n' 'deploy.sh: Unable to install depdency packages' >&2
   exit 1
 fi
 
@@ -137,7 +145,7 @@ EOM
 ##install VirtualBox
 if ! yum list installed | grep -i virtualbox; then
   if ! yum -y install VirtualBox-4.3; then
-    printf '%s\n' 'build.sh: Unable to install virtualbox package' >&2
+    printf '%s\n' 'deploy.sh: Unable to install virtualbox package' >&2
     exit 1
   fi
 fi
@@ -145,36 +153,40 @@ fi
 ##install kmod-VirtualBox
 if ! lsmod | grep vboxdrv; then
   if ! sudo /etc/init.d/vboxdrv setup; then
-    printf '%s\n' 'build.sh: Unable to install kernel module for virtualbox' >&2
+    printf '%s\n' 'deploy.sh: Unable to install kernel module for virtualbox' >&2
     exit 1
   fi
 else
-  printf '%s\n' 'build.sh: Skipping kernel module for virtualbox.  Already Installed'
+  printf '%s\n' 'deploy.sh: Skipping kernel module for virtualbox.  Already Installed'
 fi
 
 ##install Vagrant
 if ! rpm -qa | grep vagrant; then
   if ! rpm -Uvh https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.rpm; then
-    printf '%s\n' 'build.sh: Unable to install vagrant package' >&2
+    printf '%s\n' 'deploy.sh: Unable to install vagrant package' >&2
     exit 1
   fi
 else
-  printf '%s\n' 'build.sh: Skipping Vagrant install as it is already installed.'
+  printf '%s\n' 'deploy.sh: Skipping Vagrant install as it is already installed.'
 fi
 
 ##add centos 7 box to vagrant
 if ! vagrant box list | grep chef/centos-7.0; then
   if ! vagrant box add chef/centos-7.0 --provider virtualbox; then
-    printf '%s\n' 'build.sh: Unable to download centos7 box for Vagrant' >&2
+    printf '%s\n' 'deploy.sh: Unable to download centos7 box for Vagrant' >&2
     exit 1
   fi
 else
-  printf '%s\n' 'build.sh: Skipping Vagrant box add as centos-7.0 is already installed.'
+  printf '%s\n' 'deploy.sh: Skipping Vagrant box add as centos-7.0 is already installed.'
 fi
 
 ##install workaround for centos7
-if ! vagrant plugin install vagrant-centos7_fix; then
-  printf '%s\n' 'build.sh: Warning: unable to install vagrant centos7 workaround' >&2
+if ! vagrant plugin list | grep vagrant-centos7_fix; then
+  if ! vagrant plugin install vagrant-centos7_fix; then
+    printf '%s\n' 'deploy.sh: Warning: unable to install vagrant centos7 workaround' >&2
+  fi
+else
+  printf '%s\n' 'deploy.sh: Skipping Vagrant plugin as centos7 workaround is already installed.'
 fi
 
 cd /tmp/
@@ -185,7 +197,7 @@ rm -rf /tmp/bgs_vagrant
 ##clone bgs vagrant
 ##will change this to be opnfv repo when commit is done
 if ! git clone https://github.com/trozet/bgs_vagrant.git; then
-  printf '%s\n' 'build.sh: Unable to clone vagrant repo' >&2
+  printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
   exit 1
 fi
 
@@ -195,7 +207,7 @@ cd bgs_vagrant
 output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
 
 if [ ! "$output" ]; then
-  printf '%s\n' 'build.sh: Unable to detect interfaces to bridge to' >&2
+  printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
   exit 1
 fi
 
@@ -266,12 +278,12 @@ elif [ "$deployment_type" == "multi_network" ]; then
 
   ##get ip addresses for private network on controllers to make dhcp entries
   ##required for controllers_ip_array global param
-  next_private_ip=$interface_ip[1]
+  next_private_ip=${interface_ip[1]}
   type=_private
   for node in controller1 controller2 controller3; do
     next_private_ip=$(next_usable_ip $next_private_ip)
     if [ ! "$next_private_ip" ]; then
-       printf '%s\n' 'build.sh: Unable to find next ip for private network for control nodes' >&2
+       printf '%s\n' 'deploy.sh: Unable to find next ip for private network for control nodes' >&2
        exit 1
     fi
     sed -i 's/'"$node$type"'/'"$next_private_ip"'/g' opnfv_ksgen_settings.yml
@@ -291,19 +303,19 @@ elif [ "$deployment_type" == "multi_network" ]; then
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
     next_private_ip=$(next_usable_ip $next_private_ip)
     if [ ! "$next_private_ip" ]; then
-       printf '%s\n' 'build.sh: Unable to find next ip for private network for vip replacement' >&2
+       printf '%s\n' 'deploy.sh: Unable to find next ip for private network for vip replacement' >&2
        exit 1
     fi
   done
 
   ##replace public_vips
-  next_public_ip=$interface_ip[2]
+  next_public_ip=${interface_ip[2]}
   next_public_ip=$(increment_ip $next_public_ip 10)
   grep -E '*public_vip' opnfv_ksgen_settings.yml | while read -r line ; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
     next_public_ip=$(next_usable_ip $next_public_ip)
     if [ ! "$next_public_ip" ]; then
-       printf '%s\n' 'build.sh: Unable to find next ip for public network for vip replcement' >&2
+       printf '%s\n' 'deploy.sh: Unable to find next ip for public network for vip replcement' >&2
        exit 1
     fi
   done
@@ -314,13 +326,13 @@ elif [ "$deployment_type" == "multi_network" ]; then
   private_subnet=$baseaddr$network
   sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"''"\/24"'/' opnfv_ksgen_settings.yml
 else
-  printf '%s\n' 'build.sh: Unknown network type: $deployment_type' >&2
+  printf '%s\n' 'deploy.sh: Unknown network type: $deployment_type' >&2
   exit 1
 fi
 
 ##stand up vagrant
 if ! vagrant up; then
-  printf '%s\n' 'build.sh: Unable to start vagrant' >&2
+  printf '%s\n' 'deploy.sh: Unable to start vagrant' >&2
   exit 1
 fi
 
