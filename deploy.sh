@@ -31,6 +31,8 @@ display_usage() {
   echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
   echo -e "\n${green}Make sure you have the latest kernel installed before running this script! (yum update kernel +reboot)${reset}\n"
   echo -e "\nUsage:\n$0 [arguments] \n"
+  echo -e "\n   -no_parse : No variable parsing into config. Flag. \n"
+  echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
 }
 
 ##find ip of interface
@@ -104,6 +106,27 @@ fi
 
 echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
 echo "Use -h to display help"
+sleep 2
+
+while [ "`echo $1 | cut -c1`" = "-" ]
+do
+    echo $1
+    case "$1" in
+        -base_config)
+                base_config=$2
+                shift 2
+            ;;
+        -no_parse)
+                no_parse="TRUE"
+                shift 1
+            ;;
+        *)
+                display_usage
+                exit 1
+            ;;
+esac
+done
+
 
 
 ##disable selinux
@@ -254,6 +277,19 @@ else
 fi
 
 echo "${blue}Network detected: ${deployment_type}! ${reset}"
+
+if [ $base_config ]; then
+  if ! cp -f $base_config opnfv_ksgen_settings.yml; then
+    echo "{red}ERROR: Unable to copy $base_config to opnfv_ksgen_settings.yml${reset}"
+    exit 1
+  fi
+fi
+
+if [ $no_parse ]; then
+echo "${blue}Skipping parsing variables into settings file as no_parse flag is set${reset}"
+
+else
+
 echo "${blue}Gathering network parameters for Target System...this may take a few minutes${reset}"
 ##Edit the ksgen settings appropriately
 ##ksgen settings will be stored in /vagrant on the vagrant machine
@@ -335,6 +371,9 @@ else
 fi
 
 echo "${blue}Parameters Complete.  Settings have been set for Foreman. ${reset}"
+
+fi
+
 echo "${blue}Starting Vagrant! ${reset}"
 
 ##stand up vagrant
