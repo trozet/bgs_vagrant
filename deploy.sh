@@ -229,7 +229,8 @@ cd bgs_vagrant
 
 echo "${blue}Detecting network configuration...${reset}"
 ##detect host 1 or 3 interface configuration
-output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
+#output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
+output=`ifconfig | grep -E "^[a-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet:" | awk '{print $1}' | sed 's/://'`
 
 if [ ! "$output" ]; then
   printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
@@ -251,7 +252,7 @@ for interface in ${output}; do
   if [ ! "$new_ip" ]; then
     continue
   fi
-  interface_ip[$if_counter]=$new_ip
+  interface_ip_arr[$if_counter]=$new_ip
   sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\''/' Vagrantfile
   ((if_counter++))
 done
@@ -318,7 +319,7 @@ elif [ "$deployment_type" == "multi_network" ]; then
 
   ##get ip addresses for private network on controllers to make dhcp entries
   ##required for controllers_ip_array global param
-  next_private_ip=${interface_ip[1]}
+  next_private_ip=${interface_ip_arr[1]}
   type=_private
   for node in controller1 controller2 controller3; do
     next_private_ip=$(next_usable_ip $next_private_ip)
@@ -349,7 +350,7 @@ elif [ "$deployment_type" == "multi_network" ]; then
   done
 
   ##replace public_vips
-  next_public_ip=${interface_ip[2]}
+  next_public_ip=${interface_ip_arr[2]}
   next_public_ip=$(increment_ip $next_public_ip 10)
   grep -E '*public_vip' opnfv_ksgen_settings.yml | while read -r line ; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
