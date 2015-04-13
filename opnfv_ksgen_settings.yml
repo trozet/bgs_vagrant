@@ -29,6 +29,7 @@ global_params:
   nova_private_vip:
   nova_public_vip:
 network_type: multi_network
+default_gw:
 foreman:
   seed_values:
     - { name: heat_cfn, oldvalue: true, newvalue: false }
