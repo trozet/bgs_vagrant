@@ -318,16 +318,18 @@ if [ "$deployment_type" == "single_network" ]; then
   ##we also need to assign IP addresses to nodes
   ##for single node, foreman is managing the single network, so we can't reserve them
   ##not supporting single network anymore for now
-  sed -i 's/10.4.9.2/'"$private_ip"'/g' opnfv_ksgen_settings.yml
-  sed -i 's/10.2.84.3/'"$private_ip"'/g' opnfv_ksgen_settings.yml
+  echo "{blue}Single Network type is unsupported right now.  Please check your interface configuration.  Exiting. ${reset}"
+  exit 0
 
-elif [ "$deployment_type" == "three_network" ]; then
+elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_network" ]]; then
   sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
-  sed -i 's/^.*storage_iface:.*$/  storage_iface: eth1/' opnfv_ksgen_settings.yml
 
-elif [ "$deployment_type" == "multi_network" ]; then
-  sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
-  sed -i 's/^.*storage_iface:.*$/  storage_iface: eth3/' opnfv_ksgen_settings.yml
+  if [ "$deployment_type" == "three_network" ]; then
+    sed -i 's/^.*storage_iface:.*$/  storage_iface: eth1/' opnfv_ksgen_settings.yml
+    sed -i 's/^.*network_type:.*$/  network_type: three_network/' opnfv_ksgen_settings.yml
+  else
+    sed -i 's/^.*storage_iface:.*$/  storage_iface: eth3/' opnfv_ksgen_settings.yml
+  fi
 
   ##get ip addresses for private network on controllers to make dhcp entries
   ##required for controllers_ip_array global param
