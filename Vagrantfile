@@ -37,6 +37,9 @@ Vagrant.configure(2) do |config|
   config.vm.network "public_network", ip: "10.2.84.2", bridge: 'eth_replace2'
   config.vm.network "public_network", ip: "10.3.84.2", bridge: 'eth_replace3'
 
+  # IP address of your LAN's router
+  default_gw = ""
+
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
@@ -76,5 +79,6 @@ Vagrant.configure(2) do |config|
   config.ssh.username = 'root'
   config.ssh.password = 'vagrant'
   config.ssh.insert_key = 'true'
+  config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
   config.vm.provision :shell, path: "bootstrap.sh"
 end
