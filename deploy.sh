@@ -282,13 +282,13 @@ echo "${blue}Network detected: ${deployment_type}! ${reset}"
 if route | grep default; then
   defaultgw=$(route | grep default | awk '{print $2}')
   echo "${blue}default gateway detected: $defaultgw ${reset}"
-  sed -i 's/^.*default_gw:.*$/  default_gw: '\""$defaultgw"\"'/' Vagrantfile
+  sed -i 's/^.*default_gw =.*$/  default_gw = '\""$defaultgw"\"'/' Vagrantfile
 else
   defaultgw=`echo ${interface_arr_ip[0]} | cut -d. -f1-3`
   firstip=.1
   defaultgw=$defaultgw$firstip
   echo "${blue}unable to find default gateway.  Assuming it is $defaultgw ${reset}"
-  sed -i 's/^.*default_gw:.*$/  default_gw: '\""$defaultgw"\"'/' Vagrantfile
+  sed -i 's/^.*default_gw =.*$/  default_gw = '\""$defaultgw"\"'/' Vagrantfile
 fi
 
 if [ $base_config ]; then
