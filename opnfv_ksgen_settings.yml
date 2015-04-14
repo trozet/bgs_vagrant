@@ -104,7 +104,7 @@ nodes:
     - puppet
     - rdo
     - neutron
-  controller:
+  controller1:
     name: oscontroller1.ci.com
     hostname: oscontroller1.ci.com
     short_name: oscontroller1
@@ -126,7 +126,7 @@ nodes:
     - puppet
     - rdo
     - neutron
-  controller:
+  controller2:
     name: oscontroller2.ci.com
     hostname: oscontroller2.ci.com
     short_name: oscontroller2
@@ -148,7 +148,7 @@ nodes:
     - puppet
     - rdo
     - neutron
-  controller:
+  controller3:
     name: oscontroller3.ci.com
     hostname: oscontroller3.ci.com
     short_name: oscontroller3
