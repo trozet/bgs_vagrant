@@ -156,7 +156,7 @@ nodes:
     host_type: baremetal
     hostgroup: Controller_Network
     mac_address: "11:23:45:67:89:AE"
-    bmc_ip: 10.4.17.4
+    bmc_ip: 10.4.17.5
     bmc_mac: "11:23:45:67:88:AE"
     bmc_user: root
     bmc_pass: root
