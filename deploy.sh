@@ -291,7 +291,7 @@ else
   sed -i 's/^.*default_gw =.*$/  default_gw = '\""$defaultgw"\"'/' Vagrantfile
 fi
 
-sed -i 's/^.*default_gw:.*$/  default_gw:'" $defaultgw"'/' opnfv_ksgen_settings.yml
+sed -i 's/^.*default_gw:.*$/default_gw:'" $defaultgw"'/' opnfv_ksgen_settings.yml
 
 if [ $base_config ]; then
   if ! cp -f $base_config opnfv_ksgen_settings.yml; then
