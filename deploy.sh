@@ -41,6 +41,14 @@ function find_ip {
   ip addr show $1 | grep -Eo '^\s+inet\s+[\.0-9]+' | awk '{print $2}'
 }
 
+##finds subnet of ip and netmask
+##params: ip, netmask
+function find_subnet {
+  IFS=. read -r i1 i2 i3 i4 <<< "$1"
+  IFS=. read -r m1 m2 m3 m4 <<< "$2"
+  printf "%d.%d.%d.%d\n" "$((i1 & m1))" "$((i2 & m2))" "$((i3 & m3))" "$((i4 & m4))"
+}
+
 ##finds netmask of interface
 ##params: interface
 ##returns long format 255.255.x.x
@@ -268,6 +276,10 @@ for interface in ${output}; do
   fi
   interface_ip_arr[$if_counter]=$new_ip
   subnet_mask=$(find_netmask $interface)
+  if [ "$if_counter" -eq 1 ]; then
+    private_subnet_mask=$subnet_mask
+    private_short_subnet_mask=$(find_short_netmask $interface)
+  fi
   sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
   ((if_counter++))
 done
@@ -393,10 +405,9 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   done
 
   ##replace private_subnet param
-  network=.0
-  baseaddr="$(echo $next_private_ip | cut -d. -f1-3)"
-  private_subnet=$baseaddr$network
-  sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"''"\/24"'/' opnfv_ksgen_settings.yml
+  private_subnet=$(find_subnet $next_private_ip $private_subnet_mask)
+  private_subnet=$private_subnet$private_short_subnet_mask
+  sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"'/' opnfv_ksgen_settings.yml
 else
   printf '%s\n' 'deploy.sh: Unknown network type: $deployment_type' >&2
   exit 1
@@ -405,7 +416,7 @@ fi
 echo "${blue}Parameters Complete.  Settings have been set for Foreman. ${reset}"
 
 fi
-
+exit 0
 echo "${blue}Starting Vagrant! ${reset}"
 
 ##stand up vagrant
