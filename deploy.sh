@@ -267,8 +267,8 @@ for interface in ${output}; do
     continue
   fi
   interface_ip_arr[$if_counter]=$new_ip
-  subnet_mask= $(find_netmask $interface)
-  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\', netmask: '\""$subnet_mask"\"''/' Vagrantfile
+  subnet_mask=$(find_netmask $interface)
+  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
   ((if_counter++))
 done
 
