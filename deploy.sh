@@ -41,6 +41,20 @@ function find_ip {
   ip addr show $1 | grep -Eo '^\s+inet\s+[\.0-9]+' | awk '{print $2}'
 }
 
+##finds netmask of interface
+##params: interface
+##returns long format 255.255.x.x
+function find_netmask {
+  ifconfig $1 | grep -Eo 'netmask\s+[\.0-9]+' | awk '{print $2}'
+}
+
+##finds short netmask of interface
+##params: interface
+##returns short format, ex: /21
+function find_short_netmask {
+  echo "/$(ip addr show $1 | grep -Eo '^\s+inet\s+[\/\.0-9]+' | awk '{print $2}' | cut -d / -f2)"
+}
+
 ##increments next IP
 ##params: ip
 ##assumes a /24 subnet
@@ -253,7 +267,8 @@ for interface in ${output}; do
     continue
   fi
   interface_ip_arr[$if_counter]=$new_ip
-  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\''/' Vagrantfile
+  subnet_mask= $(find_netmask $interface)
+  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\', netmask: '\""$subnet_mask"\"''/' Vagrantfile
   ((if_counter++))
 done
 
@@ -291,8 +306,6 @@ else
   sed -i 's/^.*default_gw =.*$/  default_gw = '\""$defaultgw"\"'/' Vagrantfile
 fi
 
-sed -i 's/^.*default_gw:.*$/default_gw:'" $defaultgw"'/' opnfv_ksgen_settings.yml
-
 if [ $base_config ]; then
   if ! cp -f $base_config opnfv_ksgen_settings.yml; then
     echo "{red}ERROR: Unable to copy $base_config to opnfv_ksgen_settings.yml${reset}"
@@ -310,6 +323,8 @@ echo "${blue}Gathering network parameters for Target System...this may take a fe
 ##ksgen settings will be stored in /vagrant on the vagrant machine
 ##if single node deployment all the variables will have the same ip
 ##interface names will be enp0s3, enp0s8, enp0s9 in chef/centos7
+
+sed -i 's/^.*default_gw:.*$/default_gw:'" $defaultgw"'/' opnfv_ksgen_settings.yml
 
 ##replace private interface parameter
 ##private interface will be of hosts, so we need to know the provisioned host interface name
