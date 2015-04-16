@@ -280,6 +280,9 @@ for interface in ${output}; do
     private_subnet_mask=$subnet_mask
     private_short_subnet_mask=$(find_short_netmask $interface)
   fi
+  if [ "$if_counter" -eq 3 ]; then
+    storage_subnet_mask=$subnet_mask
+  fi
   sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
   ((if_counter++))
 done
@@ -343,7 +346,6 @@ sed -i 's/^.*default_gw:.*$/default_gw:'" $defaultgw"'/' opnfv_ksgen_settings.ym
 ##we add biosdevname=0, net.ifnames=0 to the kickstart to use regular interface naming convention on hosts
 ##replace IP for parameters with next IP that will be given to controller
 if [ "$deployment_type" == "single_network" ]; then
-  sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth0/' opnfv_ksgen_settings.yml
   ##we also need to assign IP addresses to nodes
   ##for single node, foreman is managing the single network, so we can't reserve them
   ##not supporting single network anymore for now
@@ -351,13 +353,9 @@ if [ "$deployment_type" == "single_network" ]; then
   exit 0
 
 elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_network" ]]; then
-  sed -i 's/^.*ovs_tunnel_if:.*$/  ovs_tunnel_if: eth1/' opnfv_ksgen_settings.yml
 
   if [ "$deployment_type" == "three_network" ]; then
-    sed -i 's/^.*storage_iface:.*$/  storage_iface: eth1/' opnfv_ksgen_settings.yml
     sed -i 's/^.*network_type:.*$/network_type: three_network/' opnfv_ksgen_settings.yml
-  else
-    sed -i 's/^.*storage_iface:.*$/  storage_iface: eth3/' opnfv_ksgen_settings.yml
   fi
 
   ##get ip addresses for private network on controllers to make dhcp entries
@@ -404,8 +402,19 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     fi
   done
 
-  ##replace private_subnet param
+  ##replace private_network param
   private_subnet=$(find_subnet $next_private_ip $private_subnet_mask)
+  sed -i 's/^.*private_network:.*$/  private_network:'" $private_subnet"'/' opnfv_ksgen_settings.yml
+  ##replace storage_network
+  if [ "$deployment_type" == "three_network" ]; then
+    sed -i 's/^.*storage_network:.*$/  storage_network:'" $private_subnet"'/' opnfv_ksgen_settings.yml
+  else
+    next_storage_ip=${interface_ip_arr[3]}
+    storage_subnet=$(find_subnet $next_storage_ip $storage_subnet_mask)
+    sed -i 's/^.*storage_network:.*$/  storage_network:'" $storage_subnet"'/' opnfv_ksgen_settings.yml
+  fi
+
+  ##replace private_subnet param
   private_subnet=$private_subnet'\'$private_short_subnet_mask
   sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"'/' opnfv_ksgen_settings.yml
 else
