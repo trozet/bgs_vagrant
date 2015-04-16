@@ -1,7 +1,7 @@
 global_params:
   admin_email: opnfv@opnfv.com
-  ha_flag: true
-  odl_flag: true
+  ha_flag: "true"
+  odl_flag: "true"
   ovs_tunnel_if: eth1
   storage_iface: eth1
   controllers_hostnames_array: oscontroller1,oscontroller2,oscontroller3
