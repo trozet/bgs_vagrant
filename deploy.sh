@@ -5,15 +5,15 @@
 #
 #Uses Vagrant and VirtualBox
 #VagrantFile uses bootsrap.sh which Installs Khaleesi
-#Khaleesi will install and configure Foreman/QuickStack 
+#Khaleesi will install and configure Foreman/QuickStack
 #
 #Pre-requisties:
-#Supports 4,3 or 1 interface configuration
+#Supports 3 or 4 network interface configuration
 #Target system must be RPM based
 #Ensure the host's kernel is up to date (yum update)
 #Provisioned nodes expected to have following order of network connections (note: not all have to exist, but order is maintained):
 #eth0- admin network
-#eth1- private network
+#eth1- private network (+storage network in 3 NIC config)
 #eth2- public network
 #eth3- storage network
 #script assumes /24 subnet mask
@@ -416,7 +416,7 @@ fi
 echo "${blue}Parameters Complete.  Settings have been set for Foreman. ${reset}"
 
 fi
-exit 0
+
 echo "${blue}Starting Vagrant! ${reset}"
 
 ##stand up vagrant
