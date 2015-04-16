@@ -110,7 +110,7 @@ nodes:
     short_name: oscontroller1
     type: controller
     host_type: baremetal
-    hostgroup: Controller_Network
+    hostgroup: Controller_Network_ODL
     mac_address: "11:23:45:67:89:AC"
     bmc_ip: 10.4.17.3
     bmc_mac: "11:23:45:67:88:AC"
