@@ -390,8 +390,10 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     fi
   done
 
-  ##replace public_vips
+  ##replace foreman site
   next_public_ip=${interface_ip_arr[2]}
+  sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
+  ##replace public vips
   next_public_ip=$(increment_ip $next_public_ip 10)
   grep -E '*public_vip' opnfv_ksgen_settings.yml | while read -r line ; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
