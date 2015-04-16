@@ -355,7 +355,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
 
   if [ "$deployment_type" == "three_network" ]; then
     sed -i 's/^.*storage_iface:.*$/  storage_iface: eth1/' opnfv_ksgen_settings.yml
-    sed -i 's/^.*network_type:.*$/  network_type: three_network/' opnfv_ksgen_settings.yml
+    sed -i 's/^.*network_type:.*$/network_type: three_network/' opnfv_ksgen_settings.yml
   else
     sed -i 's/^.*storage_iface:.*$/  storage_iface: eth3/' opnfv_ksgen_settings.yml
   fi
