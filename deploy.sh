@@ -406,7 +406,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
 
   ##replace private_subnet param
   private_subnet=$(find_subnet $next_private_ip $private_subnet_mask)
-  private_subnet=$private_subnet$private_short_subnet_mask
+  private_subnet=$private_subnet'\'$private_short_subnet_mask
   sed -i 's/^.*private_subnet:.*$/  private_subnet:'" $private_subnet"'/' opnfv_ksgen_settings.yml
 else
   printf '%s\n' 'deploy.sh: Unknown network type: $deployment_type' >&2
