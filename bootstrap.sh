@@ -40,4 +40,6 @@ cd /opt
 
 cd /opt/khaleesi/
 
+ansible localhost -m setup -i local_hosts
+
 ./run.sh --no-logs --use /vagrant/opnfv_ksgen_settings.yml playbooks/opnfv.yml
