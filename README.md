@@ -53,3 +53,7 @@ A simple bash script (deploy.sh) will provision out a Foreman/QuickStack VM Serv
     * private_mac - change to mac_address of node's Private NIC (2nd NIC)
 
 * Execute deploy.sh via: ./deploy.sh -base_config /root/bgs_vagrant/opnfv_ksgen_settings.yml
+* Install directory is to /tmp/bgs_vagrant/ - This is where vagrant will be launched from automatically
+* To access the VM you can 'cd /tmp/bgs_vagrant' and type 'vagrant ssh'
+* To access Foreman enter the IP address shown in 'cat /tmp/bgs_vagrant/opnfv_ksgen_settings.yml | grep foreman_url'
+* The user/pass by default is admin//octopus
