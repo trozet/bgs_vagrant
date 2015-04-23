@@ -206,6 +206,14 @@ else
   printf '%s\n' 'deploy.sh: Skipping kernel module for virtualbox.  Already Installed'
 fi
 
+##install Ansible
+if ! yum list installed | grep -i ansible; then
+  if ! yum -y install ansible; then
+    printf '%s\n' 'deploy.sh: Unable to install Ansible package' >&2
+    exit 1
+  fi
+fi
+
 ##install Vagrant
 if ! rpm -qa | grep vagrant; then
   if ! rpm -Uvh https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.rpm; then
