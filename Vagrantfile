@@ -80,6 +80,10 @@ Vagrant.configure(2) do |config|
   config.ssh.username = 'root'
   config.ssh.password = 'vagrant'
   config.ssh.insert_key = 'true'
+  config.vm.provision :shell, :inline => "systemctl stop NetworkManager"
+  config.vm.provision :shell, :inline => "systemctl disable NetworkManager"
+  config.vm.provision :shell, :inline => "systemctl start network.service"
+  config.vm.provision :shell, :inline => "systemctl enable network.service"
   config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
   config.vm.provision :shell, path: "bootstrap.sh"
 end
