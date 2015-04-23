@@ -32,13 +32,13 @@ Vagrant.configure(2) do |config|
   # Bridged networks make the machine appear as another physical device on
   # your network.
   # config.vm.network "public_network"
-  config.vm.network "public_network", ip: "10.4.1.2", bridge: 'eth_replace0'
-  config.vm.network "public_network", ip: "10.4.9.2", bridge: 'eth_replace1'
-  config.vm.network "public_network", ip: "10.2.84.2", bridge: 'eth_replace2'
-  config.vm.network "public_network", ip: "10.3.84.2", bridge: 'eth_replace3'
+  config.vm.network "public_network", ip: "192.168.1.67", bridge: 'enp6s0', netmask: "255.255.255.0"
+  config.vm.network "public_network", ip: "192.168.0.67", bridge: 'enp7s0', netmask: "255.255.255.0"
+  config.vm.network "public_network", ip: "172.30.9.73", bridge: 'enp8s0', netmask: "255.255.255.0"
+
 
   # IP address of your LAN's router
-  default_gw = ""
+  default_gw = "172.30.9.1"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -80,10 +80,10 @@ Vagrant.configure(2) do |config|
   config.ssh.username = 'root'
   config.ssh.password = 'vagrant'
   config.ssh.insert_key = 'true'
-  config.vm.provision :shell, :inline => "systemctl stop NetworkManager"
-  config.vm.provision :shell, :inline => "systemctl disable NetworkManager"
-  config.vm.provision :shell, :inline => "systemctl start network.service"
-  config.vm.provision :shell, :inline => "systemctl enable network.service"
+  config.vm.provision "ansible" do |ansible|
+     ansible.playbook = "reload_playbook.yml"
+  end
+  config.vm.provision :shell, :inline => "mount -t vboxsf vagrant /vagrant"
   config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
   config.vm.provision :shell, path: "bootstrap.sh"
 end
