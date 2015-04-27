@@ -39,6 +39,7 @@ Vagrant.configure(2) do |config|
 
   # IP address of your LAN's router
   default_gw = ""
+  nat_flag = false
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -85,5 +86,8 @@ Vagrant.configure(2) do |config|
   end
   config.vm.provision :shell, :inline => "mount -t vboxsf vagrant /vagrant"
   config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
+  if $nat_flag
+    config.vm.provision :shell, path: "nat_setup.sh"
+  end
   config.vm.provision :shell, path: "bootstrap.sh"
 end
