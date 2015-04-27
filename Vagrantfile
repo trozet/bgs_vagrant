@@ -86,7 +86,7 @@ Vagrant.configure(2) do |config|
   end
   config.vm.provision :shell, :inline => "mount -t vboxsf vagrant /vagrant"
   config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
-  if $nat_flag
+  if nat_flag
     config.vm.provision :shell, path: "nat_setup.sh"
   end
   config.vm.provision :shell, path: "bootstrap.sh"
