@@ -36,12 +36,6 @@ if ! yum -y install python-pip python-virtualenv gcc git; then
   exit 1
 fi
 
-##Install openstack clients
-if ! yum -y install python-keystoneclient python-novaclient python-glanceclient python-neutronclient; then
-  printf '%s\n' 'bootstrap.sh: Unable to install python openstack client packages' >&2
-  exit 1
-fi
-
 ##Install sshpass
 if ! yum -y install sshpass; then
   printf '%s\n' 'bootstrap.sh: Unable to install sshpass' >&2
