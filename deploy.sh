@@ -25,6 +25,7 @@ red=`tput setaf 1`
 green=`tput setaf 2`
 
 declare -A interface_arr
+nic_arc_flag=0
 ##END VARS
 
 ##FUNCTIONS
@@ -34,6 +35,10 @@ display_usage() {
   echo -e "\nUsage:\n$0 [arguments] \n"
   echo -e "\n   -no_parse : No variable parsing into config. Flag. \n"
   echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
+  echo -e "\n   -admin_nic : Baremetal NIC for the admin network.  Required if other "nic" arguments are used.  Example: -admin_nic em1
+  echo -e "\n   -private_nic : Baremetal NIC for the private network.  Required if other "nic" arguments are used.  Example: -private_nic em2
+  echo -e "\n   -public_nic : Baremetal NIC for the public network.  Required if other "nic" arguments are used.  Example: -public_nic em3
+  echo -e "\n   -storage_nic : Baremetal NIC for the storage network.  Optional.  Private NIC will be used for storage if not specified. Example: -storage_nic em4
 }
 
 ##find ip of interface
@@ -143,6 +148,22 @@ do
                 no_parse="TRUE"
                 shift 1
             ;;
+        -admin_nic)
+                admin_nic=$2
+                shift 2
+                nic_arg_flag=1
+        -private_nic)
+                private_nic=$2
+                shift 2
+                nic_arg_flag=1
+        -public_nic)
+                public_nic=$2
+                shift 2
+                nic_arg_flag=1
+        -storage_nic)
+                storage_nic=$2
+                shift 2
+                nic_arg_flag=1
         *)
                 display_usage
                 exit 1
@@ -150,8 +171,20 @@ do
 esac
 done
 
-
-
+##check nic flag args exist and are valid
+if [ $nic_arg_flag -eq 1 ]; then
+  for nic_type in admin_nic private_nic public_nic; do
+    if [ -z "$nic_type" ]; then
+      echo "${red}$nic_type is empty or not defined.  Required when other nic args are given!${reset}"
+      exit 1
+    fi
+    interface_ip=$(find_ip $nic_type)
+    if [ ! "$interface_ip" ]; then
+      echo "${red}$nic_type does not have an IP address! Exiting... ${reset}"
+      exit 1
+    fi
+  done
+fi
 ##disable selinux
 /sbin/setenforce 0
 
@@ -258,44 +291,78 @@ fi
 
 cd bgs_vagrant
 
-echo "${blue}Detecting network configuration...${reset}"
-##detect host 1 or 3 interface configuration
-#output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
-output=`ifconfig | grep -E "^[a-zA-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet" | awk '{print $1}' | sed 's/://'`
+##if nic_arg_flag is set, then we don't figure out
+##NICs dynamically
+if [ $nic_arg_flag -eq 1 ]; then
+  echo "${blue}Static Network Interfaces Defined.  Updating Vagrantfile...${reset}"
+  if [ -z "$storage_nic" ]; then
+      echo "${blue} storage_nic not defined, will combine storage into private VLAN ${reset}"
+      if_counter=3
+      nic_list="$admin_nic $private_nic $public_nic"
+  else
+      if_counter=4
+      nic_list="$admin_nic $private_nic $public_nic $storage_nic"
+  fi
+  if_counter=0
+  for nic in $nic_list; do
+    interface_arr[$nic]=$if_counter
+    interface_ip=$(find_ip $nic)
+    new_ip=$(next_usable_ip $interface_ip)
+    if [ ! "$new_ip" ]; then
+       echo "${red} Unable to find an IP to use for VM with nic: $nic ${reset}"
+       exit 1
+    fi
+    interface_ip_arr[$if_counter]=$new_ip
+    subnet_mask=$(find_netmask $interface)
+    if [ "$if_counter" -eq 1 ]; then
+      private_subnet_mask=$subnet_mask
+      private_short_subnet_mask=$(find_short_netmask $interface)
+    fi
+    if [ "$if_counter" -eq 3 ]; then
+      storage_subnet_mask=$subnet_mask
+    fi
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$nic"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
+    ((if_counter++))
+  done
+else
+  echo "${blue}Detecting network configuration...${reset}"
+  output=`ifconfig | grep -E "^[a-zA-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet" | awk '{print $1}' | sed 's/://'`
 
-if [ ! "$output" ]; then
-  printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
-  exit 1
+  if [ ! "$output" ]; then
+    printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
+    exit 1
+  fi
+
+
+  ##find number of interfaces with ip and substitute in VagrantFile
+  if_counter=0
+  for interface in ${output}; do
+
+    if [ "$if_counter" -ge 4 ]; then
+      break
+    fi
+    interface_ip=$(find_ip $interface)
+    if [ ! "$interface_ip" ]; then
+      continue
+    fi
+    new_ip=$(next_usable_ip $interface_ip)
+    if [ ! "$new_ip" ]; then
+      continue
+    fi
+    interface_arr[$interface]=$if_counter
+    interface_ip_arr[$if_counter]=$new_ip
+    subnet_mask=$(find_netmask $interface)
+    if [ "$if_counter" -eq 1 ]; then
+      private_subnet_mask=$subnet_mask
+      private_short_subnet_mask=$(find_short_netmask $interface)
+    fi
+    if [ "$if_counter" -eq 3 ]; then
+      storage_subnet_mask=$subnet_mask
+    fi
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
+    ((if_counter++))
+  done
 fi
-
-##find number of interfaces with ip and substitute in VagrantFile
-if_counter=0
-for interface in ${output}; do
-
-  if [ "$if_counter" -ge 4 ]; then
-    break
-  fi
-  interface_ip=$(find_ip $interface)
-  if [ ! "$interface_ip" ]; then
-    continue
-  fi
-  new_ip=$(next_usable_ip $interface_ip)
-  if [ ! "$new_ip" ]; then
-    continue
-  fi
-  interface_arr[$interface]=$if_counter
-  interface_ip_arr[$if_counter]=$new_ip
-  subnet_mask=$(find_netmask $interface)
-  if [ "$if_counter" -eq 1 ]; then
-    private_subnet_mask=$subnet_mask
-    private_short_subnet_mask=$(find_short_netmask $interface)
-  fi
-  if [ "$if_counter" -eq 3 ]; then
-    storage_subnet_mask=$subnet_mask
-  fi
-  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
-  ((if_counter++))
-done
 
 ##now remove interface config in Vagrantfile for 1 node
 ##if 1, 3, or 4 interfaces set deployment type
