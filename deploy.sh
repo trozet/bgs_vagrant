@@ -24,6 +24,7 @@ blue=`tput setaf 4`
 red=`tput setaf 1`
 green=`tput setaf 2`
 
+declare -A interface_arr
 ##END VARS
 
 ##FUNCTIONS
