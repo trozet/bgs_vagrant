@@ -320,7 +320,7 @@ echo "${blue}Network detected: ${deployment_type}! ${reset}"
 
 if route | grep default; then
   echo "${blue}Default Gateway Detected ${reset}"
-  host_default_gw=$(route | grep default | awk '{print $2}')
+  host_default_gw=$(ip route | grep default | awk '{print $3}')
   echo "${blue}Default Gateway: $host_default_gw ${reset}"
   default_gw_interface=$(ip route get $host_default_gw | awk '{print $3}')
   case "${interface_arr[$default_gw_interface]}" in
