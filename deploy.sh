@@ -260,7 +260,7 @@ cd bgs_vagrant
 echo "${blue}Detecting network configuration...${reset}"
 ##detect host 1 or 3 interface configuration
 #output=`ip link show | grep -E "^[0-9]" | grep -Ev ": lo|tun|virbr|vboxnet" | awk '{print $2}' | sed 's/://'`
-output=`ifconfig | grep -E "^[a-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet:" | awk '{print $1}' | sed 's/://'`
+output=`ifconfig | grep -E "^[a-zA-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet" | awk '{print $1}' | sed 's/://'`
 
 if [ ! "$output" ]; then
   printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
