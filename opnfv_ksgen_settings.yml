@@ -15,6 +15,12 @@ global_params:
   glance_admin_vip:
   glance_private_vip:
   glance_public_vip:
+  heat_admin_vip:
+  heat_private_vip:
+  heat_public_vip:
+  heat_cfn_admin_vip:
+  heat_cfn_private_vip:
+  heat_cfn_public_vip:
   horizon_admin_vip:
   horizon_private_vip:
   horizon_public_vip:
