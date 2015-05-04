@@ -63,13 +63,13 @@ fi
 
 ###find all the bmc IPs and number of nodes
 node_counter=0
-output=`grep bmc_ip $base_config | grep -Eo '[0-9]+.[0-9]+.[0-9]+.[0-9]'`
+output=`grep bmc_ip $base_config | grep -Eo '[0-9]+.[0-9]+.[0-9]+.[0-9]+'`
 for line in ${output} ; do
   bmc_ip[$node_counter]=$line
   ((node_counter++))
 done
 
-max_nodes=$node_counter
+max_nodes=$((node_counter-1))
 
 ###find bmc_users per node
 node_counter=0
@@ -97,33 +97,47 @@ for mynode in `seq 0 $max_nodes`; do
   fi
 done
 
-###destroy vagrant
-cd /tmp/bgs_vagrant
-if vagrant destroy; then
-  echo "${blue}Successfully destroyed Foreman VM ${reset}"
+###check to see if vbox is installed
+vboxpkg=`rpm -qa | grep VirtualBox`
+if [ $? -eq 0 ]; then
+  skip_vagrant=0
 else
-  echo "${red}Unable to destroy Foreman VM ${reset}"
-  echo "${blue}Checking if vagrant was already destroyed and no process is active...${reset}"
-  if ps axf | grep vagrant; then
-    echo "${red}Vagrant VM still exists...exiting ${reset}"
-    exit 1
-  else
-     echo "${blue}Vagrant process doesn't exist.  Moving on... ${reset}"
-  fi
+  skip_vagrant=1
 fi
 
-###kill virtualbox
-echo "${blue}Killing VirtualBox ${reset}"
-killall virtualbox
-killall VboxHeadless
+###destroy vagrant
+if [ $skip_vagrant -eq 0 ]; then
+  cd /tmp/bgs_vagrant
+  if vagrant destroy -f; then
+    echo "${blue}Successfully destroyed Foreman VM ${reset}"
+  else
+    echo "${red}Unable to destroy Foreman VM ${reset}"
+    echo "${blue}Checking if vagrant was already destroyed and no process is active...${reset}"
+    if ps axf | grep vagrant; then
+      echo "${red}Vagrant VM still exists...exiting ${reset}"
+      exit 1
+    else
+      echo "${blue}Vagrant process doesn't exist.  Moving on... ${reset}"
+    fi
+  fi
 
-###remove virtualbox
-echo "${blue}Removing VirtualBox ${reset}"
-yum -y remove VirtualBox
+  ###kill virtualbox
+  echo "${blue}Killing VirtualBox ${reset}"
+  killall virtualbox
+  killall VboxHeadless
+
+  ###remove virtualbox
+  echo "${blue}Removing VirtualBox ${reset}"
+  yum -y remove $vboxpkg
+
+else
+  echo "${blue}Skipping Vagrant destroy + Vbox Removal as VirtualBox package is already removed ${reset}"
+fi
+
 
 ###remove kernel modules
 echo "${blue}Removing kernel modules ${reset}"
-for kernel_mod in vboxnetadp vboxnetflt vboxdrv; do
+for kernel_mod in vboxnetadp vboxnetflt vboxpci vboxdrv; do
   if ! rmmod $kernel_mod; then
     if rmmod $kernel_mod 2>&1 | grep -i 'not currently loaded'; then
       echo "${blue} $kernel_mod is not currently loaded! ${reset}"
@@ -135,4 +149,3 @@ for kernel_mod in vboxnetadp vboxnetflt vboxdrv; do
     echo "${blue}Removed Kernel Module: $kernel_mod ${reset}"
   fi
 done
-
