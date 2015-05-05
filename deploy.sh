@@ -34,6 +34,7 @@ display_usage() {
   echo -e "\nUsage:\n$0 [arguments] \n"
   echo -e "\n   -no_parse : No variable parsing into config. Flag. \n"
   echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
+  echo -e "\n   -virtual : Node virtualization instead of baremetal. Flag. \n"
 }
 
 ##find ip of interface
@@ -118,6 +119,25 @@ function increment_ip {
     return 1
   fi
   echo $baseaddr.$lsv
+}
+
+##translates yaml into variables
+##params: filename, prefix (ex. "config_")
+##usage: parse_yaml opnfv_ksgen_settings.yml "config_"
+parse_yaml() {
+   local prefix=$2
+   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+   sed -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+   awk -F$fs '{
+      indent = length($1)/2;
+      vname[indent] = $2;
+      for (i in vname) {if (i > indent) {delete vname[i]}}
+      if (length($3) > 0) {
+         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+      }
+   }'
 }
 
 ##END FUNCTIONS
@@ -246,6 +266,8 @@ fi
 
 cd /tmp/
 
+##trozet REMOVE
+if false; then
 ##remove bgs vagrant incase it wasn't cleaned up
 rm -rf /tmp/bgs_vagrant
 
@@ -476,6 +498,110 @@ echo "${blue}Starting Vagrant! ${reset}"
 if ! vagrant up; then
   printf '%s\n' 'deploy.sh: Unable to start vagrant' >&2
   exit 1
+else
+  echo "${blue}Foreman VM is up! ${reset}"
 fi
+
+##trozet REMOVE
+fi
+##Bring up VM nodes
+echo "${blue}Setting VMs up... ${reset}"
+
+cd /tmp
+nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_settings.yml | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
+for node in ${nodes}; do
+
+  ##remove VM nodes incase it wasn't cleaned up
+  rm -rf /tmp/$node
+
+  ##clone bgs vagrant
+  ##will change this to be opnfv repo when commit is done
+  if ! git clone https://github.com/trozet/bgs_vagrant.git /tmp/$node; then
+    printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
+    exit 1
+  fi
+
+  cd $node/bgs_vagrant
+
+  if [ $base_config ]; then
+    if ! cp -f $base_config opnfv_ksgen_settings.yml; then
+      echo "{red}ERROR: Unable to copy $base_config to opnfv_ksgen_settings.yml${reset}"
+      exit 1
+    fi
+  fi
+
+  ##parse yaml into variables
+  eval $(parse_yaml opnfv_ksgen_settings.yml "config_")
+  ##find node type
+  node_type=config_nodes_${node}_type
+  node_type=$(eval echo \$$node_type)
+
+  ##find number of interfaces with ip and substitute in VagrantFile
+  if_counter=0
+  for interface in ${output}; do
+
+    if [ "$if_counter" -ge 4 ]; then
+      break
+    fi
+    interface_ip=$(find_ip $interface)
+    if [ ! "$interface_ip" ]; then
+      continue
+    fi
+    case "${if_counter}" in
+           0)
+             mac_addr=$config_nodes_$node_mac_address
+             ;;
+           1)
+             if [ "$node_type" == "controller" ]; then
+               mac_string=config_nodes_${node}_private_mac
+               mac_addr=$(eval echo \$$mac_string)
+             else
+               ##generate random mac
+               mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
+             fi
+             ;;
+           *)
+             mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
+             ;;
+    esac
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$macaddr"\"'/' Vagrantfile
+    ((if_counter++))
+  done
+
+  ##now remove interface config in Vagrantfile for 1 node
+  ##if 1, 3, or 4 interfaces set deployment type
+  ##if 2 interfaces remove 2nd interface and set deployment type
+  if [ "$if_counter" == 1 ]; then
+    deployment_type="single_network"
+    remove_vagrant_network eth_replace1
+    remove_vagrant_network eth_replace2
+    remove_vagrant_network eth_replace3
+  elif [ "$if_counter" == 2 ]; then
+    deployment_type="single_network"
+    second_interface=`echo $output | awk '{print $2}'`
+    remove_vagrant_network $second_interface
+    remove_vagrant_network eth_replace2
+  elif [ "$if_counter" == 3 ]; then
+    deployment_type="three_network"
+    remove_vagrant_network eth_replace3
+  else
+    deployment_type="multi_network"
+  fi
+
+  echo "${blue}Starting Vagrant Node $node! ${reset}"
+
+  ##stand up vagrant
+  if ! vagrant up; then
+    printf '%s\n' 'deploy.sh: Unable to start $node' >&2
+    exit 1
+  else
+    echo "${blue} $node VM is up! ${reset}"
+  fi
+
+  ##modify provisioning to do puppet install, config, and foreman check-in
+
+done
+
+ echo "${blue} All VMs are UP! ${reset}"
 
 
