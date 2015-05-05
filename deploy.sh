@@ -174,9 +174,6 @@ do
 esac
 done
 
-##trozet REMOVE
-if false; then
-
 ##disable selinux
 /sbin/setenforce 0
 
@@ -510,8 +507,6 @@ else
   echo "${blue}Foreman VM is up! ${reset}"
 fi
 
-##trozet REMOVE
-fi
 if [ $virtual ]; then
 
 ##Bring up VM nodes
@@ -623,15 +618,13 @@ for node in ${nodes}; do
     deployment_type="multi_network"
   fi
 
-  ##trozet REMOVE
-  node_default_gw=10.4.0.1
-
   ##modify provisioning to do puppet install, config, and foreman check-in
   ##substitute host_name and dns_server in the provisioning script
   host_string=config_nodes_${node}_hostname
   host_name=$(eval echo \$$host_string)
   sed -i 's/^host_name=REPLACE/host_name='$host_name'/' vm_nodes_provision.sh
-  sed -i 's/^dns_server=REPLACE/dns_server='$node_default_gw'/' vm_nodes_provision.sh
+  ##dns server should be the foreman server
+  sed -i 's/^dns_server=REPLACE/dns_server='${interface_ip_arr[0]}'/' vm_nodes_provision.sh
 
   ## remove bootstrap and NAT provisioning
   sed -i '/nat_setup.sh/d' Vagrantfile
