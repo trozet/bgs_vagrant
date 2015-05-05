@@ -506,22 +506,27 @@ fi
 fi
 ##Bring up VM nodes
 echo "${blue}Setting VMs up... ${reset}"
+if [ $base_config ]; then
+  nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' $base_config | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
+else
+  echo "${red}When using virtualization please supply the base_config argument! ${reset}"
+  exit 1
+fi
 
-cd /tmp
-nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_settings.yml | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
 for node in ${nodes}; do
+  cd /tmp
 
   ##remove VM nodes incase it wasn't cleaned up
   rm -rf /tmp/$node
 
   ##clone bgs vagrant
   ##will change this to be opnfv repo when commit is done
-  if ! git clone https://github.com/trozet/bgs_vagrant.git /tmp/$node; then
+  if ! git clone https://github.com/trozet/bgs_vagrant.git $node; then
     printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
     exit 1
   fi
 
-  cd $node/bgs_vagrant
+  cd $node
 
   if [ $base_config ]; then
     if ! cp -f $base_config opnfv_ksgen_settings.yml; then
@@ -537,6 +542,14 @@ for node in ${nodes}; do
   node_type=$(eval echo \$$node_type)
 
   ##find number of interfaces with ip and substitute in VagrantFile
+  output=`ifconfig | grep -E "^[a-zA-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet" | awk '{print $1}' | sed 's/://'`
+
+  if [ ! "$output" ]; then
+    printf '%s\n' 'deploy.sh: Unable to detect interfaces to bridge to' >&2
+    exit 1
+  fi
+
+
   if_counter=0
   for interface in ${output}; do
 
@@ -549,22 +562,34 @@ for node in ${nodes}; do
     fi
     case "${if_counter}" in
            0)
-             mac_addr=$config_nodes_$node_mac_address
+             mac_string=config_nodes_${node}_mac_address
+             mac_addr=$(eval echo \$$mac_string)
+             mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
+             if [ $mac_addr == "" ]; then
+                 echo "${red} Unable to find mac_address for $node! ${reset}"
+                 exit 1
+             fi
              ;;
            1)
              if [ "$node_type" == "controller" ]; then
                mac_string=config_nodes_${node}_private_mac
                mac_addr=$(eval echo \$$mac_string)
+               if [ $mac_addr == "" ]; then
+                 echo "${red} Unable to find private_mac for $node! ${reset}"
+                 exit 1
+               fi
              else
                ##generate random mac
                mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
              fi
+             mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
              ;;
            *)
              mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
+             mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
              ;;
     esac
-    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$macaddr"\"'/' Vagrantfile
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
     ((if_counter++))
   done
 
@@ -588,6 +613,11 @@ for node in ${nodes}; do
     deployment_type="multi_network"
   fi
 
+  ##modify provisioning to do puppet install, config, and foreman check-in
+  ## remove bootstrap and NAT provisioning
+  sed -i '/nat_setup.sh/d' Vagrantfile
+  sed -i '/bootstrap.sh/d' Vagrantfile
+
   echo "${blue}Starting Vagrant Node $node! ${reset}"
 
   ##stand up vagrant
@@ -597,8 +627,6 @@ for node in ${nodes}; do
   else
     echo "${blue} $node VM is up! ${reset}"
   fi
-
-  ##modify provisioning to do puppet install, config, and foreman check-in
 
 done
 
