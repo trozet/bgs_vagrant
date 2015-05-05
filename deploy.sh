@@ -614,9 +614,18 @@ for node in ${nodes}; do
   fi
 
   ##modify provisioning to do puppet install, config, and foreman check-in
+  ##substitute host_name and dns_server in the provisioning script
+  host_string=config_nodes_${node}_hostname
+  host_name=$(eval echo \$$host_string)
+  sed -i 's/^host_name=REPLACE/host_name=$host_name/' vm_nodes_provision.sh
+  sed -i 's/^dns_server=REPLACE/dns_server=$node_default_gw/' vm_nodes_provision.sh
+
   ## remove bootstrap and NAT provisioning
   sed -i '/nat_setup.sh/d' Vagrantfile
-  sed -i '/bootstrap.sh/d' Vagrantfile
+  sed -i 's/bootstrap.sh/vm_nodes_provision.sh/' Vagrantfile
+
+  ## modify default_gw to be node_default_gw
+  sed -i 's/^.*default_gw =.*$/  default_gw = '\""$node_default_gw"\"'/' Vagrantfile
 
   echo "${blue}Starting Vagrant Node $node! ${reset}"
 
