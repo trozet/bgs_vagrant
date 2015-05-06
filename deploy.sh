@@ -640,7 +640,7 @@ for node in ${nodes}; do
 
   ##stand up vagrant
   if ! vagrant up; then
-    printf '%s\n' 'deploy.sh: Unable to start $node' >&2
+    echo "${red} Unable to start $node ${reset}"
     exit 1
   else
     echo "${blue} $node VM is up! ${reset}"
