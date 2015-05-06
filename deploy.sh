@@ -633,6 +633,9 @@ for node in ${nodes}; do
   ## modify default_gw to be node_default_gw
   sed -i 's/^.*default_gw =.*$/  default_gw = '\""$node_default_gw"\"'/' Vagrantfile
 
+  ## modify VM memory to be 4gig
+  sed -i 's/^.*vb.memory =.*$/     vb.memory = 4096/' Vagrantfile
+
   echo "${blue}Starting Vagrant Node $node! ${reset}"
 
   ##stand up vagrant
