@@ -152,18 +152,22 @@ do
                 admin_nic=$2
                 shift 2
                 nic_arg_flag=1
+            ;;
         -private_nic)
                 private_nic=$2
                 shift 2
                 nic_arg_flag=1
+            ;;
         -public_nic)
                 public_nic=$2
                 shift 2
                 nic_arg_flag=1
+            ;;
         -storage_nic)
                 storage_nic=$2
                 shift 2
                 nic_arg_flag=1
+            ;;
         *)
                 display_usage
                 exit 1
