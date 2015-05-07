@@ -36,9 +36,6 @@ if ! ping www.google.com -c 5; then
   exit 1
 fi
 
-# update all the base packages from the updates repository
-#yum -t -y -e 0 update
-
 ##install EPEL
 if ! yum repolist | grep "epel/"; then
   if ! rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm; then
@@ -49,6 +46,12 @@ else
   printf '%s\n' 'vm_nodes_provision.sh: Skipping EPEL repo as it is already configured.'
 fi
 
+##install device-mapper-libs
+##needed for libvirtd on compute nodes
+if ! yum -y upgrade device-mapper-libs; then
+   echo "${red} WARN: Unable to upgrade device-mapper-libs...nova-compute may not function ${reset}"
+fi
+
 echo "${blue} Installing Puppet ${reset}"
 ##install puppet
 if ! yum list installed | grep -i puppet; then
@@ -57,7 +60,6 @@ if ! yum list installed | grep -i puppet; then
     exit 1
   fi
 fi
-
 
 echo "${blue} Configuring puppet ${reset}"
 cat > /etc/puppet/puppet.conf << EOF
@@ -77,6 +79,7 @@ ca_server       = foreman-server.opnfv.com
 certname        = $host_name
 environment     = production
 server          = foreman-server.opnfv.com
+runinterval     = 600
 
 EOF
 
@@ -84,7 +87,6 @@ EOF
 /sbin/chkconfig --level 345 puppet on
 
 /usr/bin/puppet agent --config /etc/puppet/puppet.conf -o --tags no_such_tag --server foreman-server.opnfv.com --no-daemonize
-
 
 sync
 
