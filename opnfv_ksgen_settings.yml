@@ -97,9 +97,9 @@ nodes:
     type: compute
     host_type: baremetal
     hostgroup: Compute
-    mac_address: "01:23:45:67:89:AB"
+    mac_address: "10:23:45:67:89:AB"
     bmc_ip: 10.4.17.2
-    bmc_mac: "01:23:45:67:88:AB"
+    bmc_mac: "10:23:45:67:88:AB"
     bmc_user: root
     bmc_pass: root
     ansible_ssh_pass: "Op3nStack"
@@ -117,13 +117,13 @@ nodes:
     type: controller
     host_type: baremetal
     hostgroup: Controller_Network_ODL
-    mac_address: "11:23:45:67:89:AC"
+    mac_address: "10:23:45:67:89:AC"
     bmc_ip: 10.4.17.3
-    bmc_mac: "11:23:45:67:88:AC"
+    bmc_mac: "10:23:45:67:88:AC"
     bmc_user: root
     bmc_pass: root
     private_ip: controller1_private
-    private_mac: "11:23:45:67:87:AC"
+    private_mac: "10:23:45:67:87:AC"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
@@ -139,13 +139,13 @@ nodes:
     type: controller
     host_type: baremetal
     hostgroup: Controller_Network
-    mac_address: "11:23:45:67:89:AD"
+    mac_address: "10:23:45:67:89:AD"
     bmc_ip: 10.4.17.4
-    bmc_mac: "11:23:45:67:88:AD"
+    bmc_mac: "10:23:45:67:88:AD"
     bmc_user: root
     bmc_pass: root
     private_ip: controller2_private
-    private_mac: "11:23:45:67:87:AD"
+    private_mac: "10:23:45:67:87:AD"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
@@ -161,13 +161,13 @@ nodes:
     type: controller
     host_type: baremetal
     hostgroup: Controller_Network
-    mac_address: "11:23:45:67:89:AE"
+    mac_address: "10:23:45:67:89:AE"
     bmc_ip: 10.4.17.5
-    bmc_mac: "11:23:45:67:88:AE"
+    bmc_mac: "10:23:45:67:88:AE"
     bmc_user: root
     bmc_pass: root
     private_ip: controller3_private
-    private_mac: "11:23:45:67:87:AE"
+    private_mac: "10:23:45:67:87:AE"
     ansible_ssh_pass: "Op3nStack"
     admin_password: "octopus"
     groups:
