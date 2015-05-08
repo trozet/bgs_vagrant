@@ -513,6 +513,12 @@ if [ $virtual ]; then
 echo "${blue}Setting VMs up... ${reset}"
 if [ $base_config ]; then
   nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' $base_config | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
+  ##due to ODL Helium bug of OVS connecting to ODL too early, we need controllers to install first
+  ##this is fix kind of assumes more than I would like to, but for now it should be OK as we always have
+  ##3 static controllers
+  compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
+  controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
+  nodes=${controller_nodes}${compute_nodes}
 else
   echo "${red}When using virtualization please supply the base_config argument! ${reset}"
   exit 1
