@@ -178,17 +178,19 @@ done
 ##check nic flag args exist and are valid
 if [ $nic_arg_flag -eq 1 ]; then
   for nic_type in admin_nic private_nic public_nic; do
-    if [ -z "$nic_type" ]; then
+    eval "nic_value=\$$nic_type"
+    if [ -z "$nic_value" ]; then
       echo "${red}$nic_type is empty or not defined.  Required when other nic args are given!${reset}"
       exit 1
     fi
-    interface_ip=$(find_ip $nic_type)
+    interface_ip=$(find_ip $nic_value)
     if [ ! "$interface_ip" ]; then
-      echo "${red}$nic_type does not have an IP address! Exiting... ${reset}"
+      echo "${red}$nic_value does not have an IP address! Exiting... ${reset}"
       exit 1
     fi
   done
 fi
+
 ##disable selinux
 /sbin/setenforce 0
 
