@@ -527,7 +527,7 @@ for node in ${nodes}; do
 
   ##clone bgs vagrant
   ##will change this to be opnfv repo when commit is done
-  if ! git clone https://github.com/trozet/bgs_vagrant.git -b virtual $node; then
+  if ! git clone https://github.com/trozet/bgs_vagrant.git $node; then
     printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
     exit 1
   fi
