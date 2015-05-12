@@ -11,12 +11,14 @@ A simple bash script (deploy.sh) will provision out a Foreman/QuickStack VM Serv
 * Nodes will need to be set to PXE boot first in priority, and off the first NIC, connected to the same VLAN as NIC 1 * of your JumpHost
 * Nodes need to have BMC/OOB management via IPMI setup
 * Internet access via first (Admin) or third interface (Public)
+* No other hypervisors should be running on JumpHost
 
 ####VM Nodes:
 * JumpHost with 3 interfaces, configured with IP, connected to separate VLANS
 * DHCP should not be running in any VLAN.  Foreman will act as a DHCP Server
 * On baremetal JumpHost you will need an RPM based linux (CentOS 7 will do) with the kernel up to date (yum update kernel) + at least 24GB of RAM
 * Internet access via the first (Admin) or third interface (Public)
+* No other hypervisors should be running on JumpHost
 
 ##How It Works
 
