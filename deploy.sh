@@ -33,12 +33,12 @@ display_usage() {
   echo -e "\n\n${blue}This script is used to deploy Foreman/QuickStack Installer and Provision OPNFV Target System${reset}\n\n"
   echo -e "\n${green}Make sure you have the latest kernel installed before running this script! (yum update kernel +reboot)${reset}\n"
   echo -e "\nUsage:\n$0 [arguments] \n"
-  echo -e "\n   -no_parse : No variable parsing into config. Flag. \n"
-  echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
-  echo -e "\n   -admin_nic : Baremetal NIC for the admin network.  Required if other "nic" arguments are used.  Example: -admin_nic em1
-  echo -e "\n   -private_nic : Baremetal NIC for the private network.  Required if other "nic" arguments are used.  Example: -private_nic em2
-  echo -e "\n   -public_nic : Baremetal NIC for the public network.  Required if other "nic" arguments are used.  Example: -public_nic em3
-  echo -e "\n   -storage_nic : Baremetal NIC for the storage network.  Optional.  Private NIC will be used for storage if not specified. Example: -storage_nic em4
+  echo -e "\n   -no_parse : No variable parsing into config. Flag."
+  echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml"
+  echo -e "\n   -admin_nic : Baremetal NIC for the admin network.  Required if other "nic" arguments are used.  Example: -admin_nic em1"
+  echo -e "\n   -private_nic : Baremetal NIC for the private network.  Required if other "nic" arguments are used.  Example: -private_nic em2"
+  echo -e "\n   -public_nic : Baremetal NIC for the public network.  Required if other "nic" arguments are used.  Example: -public_nic em3"
+  echo -e "\n   -storage_nic : Baremetal NIC for the storage network.  Optional.  Private NIC will be used for storage if not specified. Example: -storage_nic em4"
 }
 
 ##find ip of interface
@@ -302,7 +302,7 @@ cd bgs_vagrant
 if [ $nic_arg_flag -eq 1 ]; then
   echo "${blue}Static Network Interfaces Defined.  Updating Vagrantfile...${reset}"
   if [ -z "$storage_nic" ]; then
-      echo "${blue} storage_nic not defined, will combine storage into private VLAN ${reset}"
+      echo "${blue}Storage_nic not defined, will combine storage into private VLAN ${reset}"
       if_counter=3
       nic_list="$admin_nic $private_nic $public_nic"
   else
@@ -319,10 +319,10 @@ if [ $nic_arg_flag -eq 1 ]; then
        exit 1
     fi
     interface_ip_arr[$if_counter]=$new_ip
-    subnet_mask=$(find_netmask $interface)
+    subnet_mask=$(find_netmask $nic)
     if [ "$if_counter" -eq 1 ]; then
       private_subnet_mask=$subnet_mask
-      private_short_subnet_mask=$(find_short_netmask $interface)
+      private_short_subnet_mask=$(find_short_netmask $nic)
     fi
     if [ "$if_counter" -eq 3 ]; then
       storage_subnet_mask=$subnet_mask
