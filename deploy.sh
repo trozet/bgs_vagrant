@@ -512,8 +512,20 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     ##if unset then we assume its the first IP in the public subnet
     public_subnet=$(find_subnet $next_public_ip $public_subnet_mask)
     public_gateway=$(increment_subnet $public_subnet 1)
-  }
+  fi
   sed -i 's/^.*public_gateway:.*$/  public_gateway:'" $public_gateway"'/' opnfv_ksgen_settings.yml
+
+  ##we have to define an allocation range of the public subnet to give
+  ##to neutron to use as floating IPs
+  ##we should control this subnet, so this range should work .150-200
+  ##but generally this is a bad idea and we are assuming at least a /24 subnet here
+  public_subnet=$(find_subnet $next_public_ip $public_subnet_mask)
+  public_allocation_start=$(increment_subnet $public_subnet 150)
+  public_allocation_end=$(increment_subnet $public_subnet 200)
+
+  sed -i 's/^.*public_allocation_start:.*$/  public_allocation_start:'" $public_allocation_start"'/' opnfv_ksgen_settings.yml
+  sed -i 's/^.*public_allocation_end:.*$/  public_allocation_end:'" $public_allocation_end"'/' opnfv_ksgen_settings.yml
+
 else
   printf '%s\n' 'deploy.sh: Unknown network type: $deployment_type' >&2
   exit 1

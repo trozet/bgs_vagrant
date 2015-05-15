@@ -39,6 +39,8 @@ global_params:
   public_dns:
   public_network:
   public_subnet:
+  public_allocation_start:
+  public_allocation_end:
 network_type: multi_network
 default_gw:
 foreman:
