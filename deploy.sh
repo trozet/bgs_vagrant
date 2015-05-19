@@ -436,6 +436,8 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     sed -i 's/^.*network_type:.*$/network_type: three_network/' opnfv_ksgen_settings.yml
   fi
 
+  sed -i 's/^.*deployment_type:.*$/  deployment_type: '"$deployment_type"'/' opnfv_ksgen_settings.yml
+
   ##get ip addresses for private network on controllers to make dhcp entries
   ##required for controllers_ip_array global param
   next_private_ip=${interface_ip_arr[1]}

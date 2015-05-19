@@ -41,6 +41,7 @@ global_params:
   public_subnet:
   public_allocation_start:
   public_allocation_end:
+  deployment_type:
 network_type: multi_network
 default_gw:
 foreman:
