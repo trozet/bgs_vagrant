@@ -47,7 +47,7 @@ cd /opt
 echo "Cloning khaleesi to /opt"
 
 if [ ! -d khaleesi ]; then
-  if ! git clone -b opnfv https://github.com/trozet/khaleesi.git; then
+  if ! git clone -b v1.0 https://github.com/trozet/khaleesi.git; then
     printf '%s\n' 'bootstrap.sh: Unable to git clone khaleesi' >&2
     exit 1
   fi
