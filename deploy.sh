@@ -197,7 +197,7 @@ else
 fi
 
 ##install dependencies
-if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel kernel-headers kernel-devel dkms; then
+if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel kernel-headers kernel-devel dkms psmisc; then
   printf '%s\n' 'deploy.sh: Unable to install depdency packages' >&2
   exit 1
 fi
