@@ -124,7 +124,7 @@ if [ $skip_vagrant -eq 0 ]; then
   ###kill virtualbox
   echo "${blue}Killing VirtualBox ${reset}"
   killall virtualbox
-  killall VboxHeadless
+  killall VBoxHeadless
 
   ###remove virtualbox
   echo "${blue}Removing VirtualBox ${reset}"
