@@ -31,6 +31,14 @@ if ! grep 'PEERDNS=no' /etc/sysconfig/network-scripts/ifcfg-enp0s3; then
   systemctl restart NetworkManager
 fi
 
+##modify /etc/resolv.conf to point to foreman
+cat > /etc/resolv.conf << EOF
+search ci.com opnfv.com
+nameserver $dns_server
+nameserver 8.8.8.8
+
+EOF
+
 if ! ping www.google.com -c 5; then 
   echo "${red} No internet connection, check your route and DNS setup ${reset}"
   exit 1

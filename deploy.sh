@@ -35,6 +35,7 @@ display_usage() {
   echo -e "\n   -no_parse : No variable parsing into config. Flag. \n"
   echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
   echo -e "\n   -virtual : Node virtualization instead of baremetal. Flag. \n"
+  echo -e "\n   -no_dhcp : Do not run dhcp server.  Use this with -virtual when your pc network already has a dhcp server. \n"
 }
 
 ##find ip of interface
@@ -176,6 +177,10 @@ do
                 virtual="TRUE"
                 shift 1
             ;;
+        -no_dhcp)
+                no_dhcp="TRUE"
+                shift 1
+            ;;
         *)
                 display_usage
                 exit 1
@@ -198,7 +203,7 @@ fi
 
 ##install dependencies
 if ! yum -y install binutils gcc make patch libgomp glibc-headers glibc-devel kernel-headers kernel-devel dkms psmisc; then
-  printf '%s\n' 'deploy.sh: Unable to install depdency packages' >&2
+  printf '%s\n' 'deploy.sh: Unable to install dependency packages' >&2
   exit 1
 fi
 
@@ -303,7 +308,11 @@ fi
 if_counter=0
 for interface in ${output}; do
 
-  if [ "$if_counter" -ge 4 ]; then
+  if [ $virtual ]; then
+    if [ "$if_counter" -ge 1 ]; then
+      break
+    fi
+  elif [ "$if_counter" -ge 4 ]; then
     break
   fi
   interface_ip=$(find_ip $interface)
@@ -335,16 +344,26 @@ done
 ##now remove interface config in Vagrantfile for 1 node
 ##if 1, 3, or 4 interfaces set deployment type
 ##if 2 interfaces remove 2nd interface and set deployment type
-if [ "$if_counter" == 1 ]; then
-  deployment_type="single_network"
-  remove_vagrant_network eth_replace1
-  remove_vagrant_network eth_replace2
-  remove_vagrant_network eth_replace3
-elif [ "$if_counter" == 2 ]; then
-  deployment_type="single_network"
-  second_interface=`echo $output | awk '{print $2}'`
-  remove_vagrant_network $second_interface
-  remove_vagrant_network eth_replace2
+if [[ "$if_counter" == 1 || [[ "$if_counter" == 2 ]]; then
+  if [ $virtual ]; then
+    deployment_type="single_network"
+    echo "${blue}Single network detected for Virtual deployment...converting to three_network with internal networks! ${reset}"
+    private_internal_ip=155.1.2.2
+    public_internal_ip=156.1.2.2
+    private_subnet_mask=255.255.255.0
+    private_short_subnet_mask=/24
+    interface_ip_arr[1]=$private_internal_ip
+    interface_ip_arr[2]=$public_internal_ip
+    public_subnet_mask=255.255.255.0
+    public_short_subnet_mask=/24
+    sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", ip: '\""$private_internal_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+    sed -i 's/^.*eth_replace2.*$/  config.vm.network "private_network", virtualbox__intnet: "my_public_network", ip: '\""$public_internal_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+    remove_vagrant_network eth_replace3
+    deployment_type=three_network
+  else
+     echo "${blue}Single network or 2 network detected for baremetal deployment.  This is unsupported! Exiting. ${reset}"
+     exit 1
+  fi
 elif [ "$if_counter" == 3 ]; then
   deployment_type="three_network"
   remove_vagrant_network eth_replace3
@@ -353,6 +372,12 @@ else
 fi
 
 echo "${blue}Network detected: ${deployment_type}! ${reset}"
+
+if [ $virtual ]; then
+  if if [ $no_dhcp ]; then
+    sed -i 's/^.*disable_dhcp_flag =.*$/  disable_dhcp_flag = true/' Vagrantfile
+  fi
+fi
 
 if route | grep default; then
   echo "${blue}Default Gateway Detected ${reset}"
@@ -472,6 +497,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
 
   ##replace foreman site
   next_public_ip=${interface_ip_arr[2]}
+  foreman_ip=$next_public_ip
   sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
   ##replace public vips
   next_public_ip=$(increment_ip $next_public_ip 10)
@@ -604,7 +630,11 @@ for node in ${nodes}; do
   if_counter=0
   for interface in ${output}; do
 
-    if [ "$if_counter" -ge 4 ]; then
+    if [ $single_network ]; then
+      if [ "$if_counter" -ge 1 ]; then
+        break
+      fi
+    elif [ "$if_counter" -ge 4 ]; then
       break
     fi
     interface_ip=$(find_ip $interface)
@@ -647,16 +677,27 @@ for node in ${nodes}; do
   ##now remove interface config in Vagrantfile for 1 node
   ##if 1, 3, or 4 interfaces set deployment type
   ##if 2 interfaces remove 2nd interface and set deployment type
-  if [ "$if_counter" == 1 ]; then
+  if [[ "$if_counter" == 1 || [[ "$if_counter" == 2 ]]; then
     deployment_type="single_network"
-    remove_vagrant_network eth_replace1
-    remove_vagrant_network eth_replace2
+    if [ "$node_type" == "controller" ]; then
+               mac_string=config_nodes_${node}_private_mac
+               mac_addr=$(eval echo \$$mac_string)
+               if [ $mac_addr == "" ]; then
+                 echo "${red} Unable to find private_mac for $node! ${reset}"
+                 exit 1
+               fi
+    else
+               ##generate random mac
+               mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
+    fi
+    mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
+    next_private_ip=$(increment_ip $next_private_ip 1)
+    sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", :mac => '\""$mac_addr"\"', ip: '\""$next_private_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+    mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
+    mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
+    next_public_ip=$(increment_ip $next_public_ip 1)
+    sed -i 's/^.*eth_replace2.*$/  config.vm.network "private_network", virtualbox__intnet: "my_public_network", :mac => '\""$mac_addr"\"', ip: '\""$next_public_ip"\"', netmask: '\""$public_subnet_mask"\"'/' Vagrantfile
     remove_vagrant_network eth_replace3
-  elif [ "$if_counter" == 2 ]; then
-    deployment_type="single_network"
-    second_interface=`echo $output | awk '{print $2}'`
-    remove_vagrant_network $second_interface
-    remove_vagrant_network eth_replace2
   elif [ "$if_counter" == 3 ]; then
     deployment_type="three_network"
     remove_vagrant_network eth_replace3
@@ -680,8 +721,10 @@ for node in ${nodes}; do
   sed -i 's/^.*default_gw =.*$/  default_gw = '\""$node_default_gw"\"'/' Vagrantfile
 
   ## modify VM memory to be 4gig
-  sed -i 's/^.*vb.memory =.*$/     vb.memory = 4096/' Vagrantfile
-
+  ##if node type is controller
+  if [ "$node_type" == "controller" ]; then
+    sed -i 's/^.*vb.memory =.*$/     vb.memory = 4096/' Vagrantfile
+  fi
   echo "${blue}Starting Vagrant Node $node! ${reset}"
 
   ##stand up vagrant
