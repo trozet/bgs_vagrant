@@ -25,6 +25,7 @@ red=`tput setaf 1`
 green=`tput setaf 2`
 
 declare -A interface_arr
+declare -A controllers_ip_arr
 ##END VARS
 
 ##FUNCTIONS
@@ -470,6 +471,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   ##required for controllers_ip_array global param
   next_private_ip=${interface_ip_arr[1]}
   type=_private
+  control_count=0
   for node in controller1 controller2 controller3; do
     next_private_ip=$(next_usable_ip $next_private_ip)
     if [ ! "$next_private_ip" ]; then
@@ -478,6 +480,8 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     fi
     sed -i 's/'"$node$type"'/'"$next_private_ip"'/g' opnfv_ksgen_settings.yml
     controller_ip_array=$controller_ip_array$next_private_ip,
+    controllers_ip_arr[$control_count]=$next_private_ip
+    ((control_count++))
   done
 
   ##replace global param for contollers_ip_array
@@ -497,6 +501,10 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
        exit 1
     fi
   done
+
+  ##replace odl_control_ip (non-HA only)
+  odl_control_ip=${controllers_ip_arr[0]}
+  sed -i 's/^.*odl_control_ip:.*$/  odl_control_ip: '"$odl_control_ip"'/' opnfv_ksgen_settings.yml
 
   ##replace foreman site
   next_public_ip=${interface_ip_arr[2]}
@@ -593,6 +601,7 @@ compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
 controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
 nodes=${controller_nodes}${compute_nodes}
 next_admin_ip=${interface_ip_arr[0]}
+controller_count=0
 
 for node in ${nodes}; do
   cd /tmp
@@ -705,8 +714,18 @@ for node in ${nodes}; do
                mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
     fi
     mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
-    next_private_ip=$(increment_ip $next_private_ip 1)
-    sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", :mac => '\""$mac_addr"\"', ip: '\""$next_private_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+    if [ "$node_type" == "controller" ]; then
+      new_node_ip=${controllers_ip_arr[$controller_count]}
+      if [ ! "$new_node_ip" ]; then
+        echo "{red}ERROR: Empty node ip for controller $controller_count ${reset}"
+        exit 1
+      fi
+      ((controller_count++))
+    else
+      next_private_ip=$(increment_ip $next_private_ip 1)
+      new_node_ip=$next_private_ip
+    fi
+    sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", :mac => '\""$mac_addr"\"', ip: '\""$new_node_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
     mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
     mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
     next_public_ip=$(increment_ip $next_public_ip 1)
