@@ -487,6 +487,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
 
   ##if no dhcp, find all the Admin IPs for nodes in advance
   if [ $no_dhcp ]; then
+    sed -i 's/^.*no_dhcp:.*$/no_dhcp: true/' opnfv_ksgen_settings.yml
     nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_settings.yml | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
     compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
     controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
