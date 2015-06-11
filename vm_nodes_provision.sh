@@ -18,6 +18,7 @@ green=`tput setaf 2`
 
 host_name=REPLACE
 dns_server=REPLACE
+host_ip=REPLACE
 ##END VARS
 
 ##set hostname
@@ -38,6 +39,15 @@ search ci.com opnfv.com
 nameserver $dns_server
 nameserver 8.8.8.8
 
+EOF
+
+##modify /etc/hosts to add own IP for rabbitmq workaround
+host_short_name=`echo $host_name | cut -d . -f 1`
+echo "${blue} Configuring hosts with: $host_name $host_ip ${reset}"
+cat > /etc/hosts << EOF
+$host_ip  $host_short_name $host_name
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 EOF
 
 if ! ping www.google.com -c 5; then 

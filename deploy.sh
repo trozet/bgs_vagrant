@@ -726,6 +726,11 @@ for node in ${nodes}; do
       new_node_ip=$next_private_ip
     fi
     sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", :mac => '\""$mac_addr"\"', ip: '\""$new_node_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+
+    ##replace host_ip in vm_nodes_provision with private ip
+    sed -i 's/^host_ip=REPLACE/host_ip='$new_node_ip'/' vm_nodes_provision.sh
+
+    ##find public ip info
     mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
     mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
     next_public_ip=$(increment_ip $next_public_ip 1)
