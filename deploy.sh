@@ -26,6 +26,7 @@ green=`tput setaf 2`
 
 declare -A interface_arr
 declare -A controllers_ip_arr
+declare -A admin_ip_arr
 ##END VARS
 
 ##FUNCTIONS
@@ -484,7 +485,27 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     ((control_count++))
   done
 
-  ##replace global param for contollers_ip_array
+  ##if no dhcp, find all the Admin IPs for nodes in advance
+  if [ $no_dhcp ]; then
+    nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_settings.yml | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
+    compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
+    controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
+    nodes=${controller_nodes}${compute_nodes}
+    next_admin_ip=${interface_ip_arr[0]}
+    type=_admin
+    for node in ${nodes}; do
+      next_admin_ip=$(next_usable_ip $next_admin_ip)
+      if [ ! "$next_admin_ip" ]; then
+        echo "${red} Unable to find an unused IP in admin_network for $node ! ${reset}"
+        exit 1
+      else
+        admin_ip_arr[$node]=$next_admin_ip
+        sed -i 's/'"$node$type"'/'"$next_admin_ip"'/g' opnfv_ksgen_settings.yml
+      fi
+    done
+  fi
+
+  ##replace global param for controllers_ip_array
   controller_ip_array=${controller_ip_array%?}
   sed -i 's/^.*controllers_ip_array:.*$/  controllers_ip_array: '"$controller_ip_array"'/' opnfv_ksgen_settings.yml
 
@@ -600,7 +621,6 @@ nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_setti
 compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
 controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
 nodes=${controller_nodes}${compute_nodes}
-next_admin_ip=${interface_ip_arr[0]}
 controller_count=0
 
 for node in ${nodes}; do
@@ -684,13 +704,8 @@ for node in ${nodes}; do
              ;;
     esac
     if [ $no_dhcp ]; then
-       next_admin_ip=$(next_usable_ip $next_admin_ip)
-       if [ ! "$next_admin_ip" ]; then
-         echo "${red} Unable to find an unused IP in admin_network for $node ! ${reset}"
-         exit 1
-       else
-         sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$next_admin_ip"\"', netmask: '\""$admin_subnet_mask"\"', bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
-       fi
+      this_admin_ip=${admin_ip_arr[$node]}
+      sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$this_admin_ip"\"', netmask: '\""$admin_subnet_mask"\"', bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
     else
       sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
     fi
