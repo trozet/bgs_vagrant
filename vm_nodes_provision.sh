@@ -32,6 +32,7 @@ if ! grep 'PEERDNS=no' /etc/sysconfig/network-scripts/ifcfg-enp0s3; then
 fi
 
 ##modify /etc/resolv.conf to point to foreman
+echo "${blue} Configuring resolv.conf with DNS: $dns_server ${reset}"
 cat > /etc/resolv.conf << EOF
 search ci.com opnfv.com
 nameserver $dns_server

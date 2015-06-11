@@ -287,7 +287,7 @@ rm -rf /tmp/bgs_vagrant
 
 ##clone bgs vagrant
 ##will change this to be opnfv repo when commit is done
-if ! git clone https://github.com/trozet/bgs_vagrant.git; then
+if ! git clone -b demo https://github.com/trozet/bgs_vagrant.git; then
   printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
   exit 1
 fi
@@ -326,16 +326,19 @@ for interface in ${output}; do
   interface_arr[$interface]=$if_counter
   interface_ip_arr[$if_counter]=$new_ip
   subnet_mask=$(find_netmask $interface)
-  if [ "$if_counter" -eq 1 ]; then
+  if [ "$if_counter" -eq 0 ]; then
+    admin_subnet_mask=$subnet_mask
+  elif [ "$if_counter" -eq 1 ]; then
     private_subnet_mask=$subnet_mask
     private_short_subnet_mask=$(find_short_netmask $interface)
-  fi
-  if [ "$if_counter" -eq 2 ]; then
+  elif [ "$if_counter" -eq 2 ]; then
     public_subnet_mask=$subnet_mask
     public_short_subnet_mask=$(find_short_netmask $interface)
-  fi
-  if [ "$if_counter" -eq 3 ]; then
+  elif [ "$if_counter" -eq 3 ]; then
     storage_subnet_mask=$subnet_mask
+  else
+    echo "${red}ERROR: interface counter outside valid range of 0 to 3: $if_counter ! ${reset}"
+    exit 1
   fi
   sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
   ((if_counter++))
@@ -344,7 +347,7 @@ done
 ##now remove interface config in Vagrantfile for 1 node
 ##if 1, 3, or 4 interfaces set deployment type
 ##if 2 interfaces remove 2nd interface and set deployment type
-if [[ "$if_counter" == 1 || [[ "$if_counter" == 2 ]]; then
+if [[ "$if_counter" == 1 || "$if_counter" == 2 ]]; then
   if [ $virtual ]; then
     deployment_type="single_network"
     echo "${blue}Single network detected for Virtual deployment...converting to three_network with internal networks! ${reset}"
@@ -374,7 +377,7 @@ fi
 echo "${blue}Network detected: ${deployment_type}! ${reset}"
 
 if [ $virtual ]; then
-  if if [ $no_dhcp ]; then
+  if [ $no_dhcp ]; then
     sed -i 's/^.*disable_dhcp_flag =.*$/  disable_dhcp_flag = true/' Vagrantfile
   fi
 fi
@@ -589,6 +592,7 @@ nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_setti
 compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
 controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
 nodes=${controller_nodes}${compute_nodes}
+next_admin_ip=${interface_ip_arr[0]}
 
 for node in ${nodes}; do
   cd /tmp
@@ -598,7 +602,7 @@ for node in ${nodes}; do
 
   ##clone bgs vagrant
   ##will change this to be opnfv repo when commit is done
-  if ! git clone https://github.com/trozet/bgs_vagrant.git $node; then
+  if ! git clone -b demo https://github.com/trozet/bgs_vagrant.git $node; then
     printf '%s\n' 'deploy.sh: Unable to clone vagrant repo' >&2
     exit 1
   fi
@@ -670,14 +674,24 @@ for node in ${nodes}; do
              mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
              ;;
     esac
-    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
+    if [ $no_dhcp ]; then
+       next_admin_ip=$(next_usable_ip $next_admin_ip)
+       if [ ! "$next_admin_ip" ]; then
+         echo "${red} Unable to find an unused IP in admin_network for $node ! ${reset}"
+         exit 1
+       else
+         sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$next_admin_ip"\"', netmask: '\""$admin_subnet_mask"\"', bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
+       fi
+    else
+      sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
+    fi
     ((if_counter++))
   done
 
   ##now remove interface config in Vagrantfile for 1 node
   ##if 1, 3, or 4 interfaces set deployment type
   ##if 2 interfaces remove 2nd interface and set deployment type
-  if [[ "$if_counter" == 1 || [[ "$if_counter" == 2 ]]; then
+  if [[ "$if_counter" == 1 || "$if_counter" == 2 ]]; then
     deployment_type="single_network"
     if [ "$node_type" == "controller" ]; then
                mac_string=config_nodes_${node}_private_mac
