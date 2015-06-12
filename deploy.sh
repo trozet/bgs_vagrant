@@ -528,6 +528,9 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   odl_control_ip=${controllers_ip_arr[0]}
   sed -i 's/^.*odl_control_ip:.*$/  odl_control_ip: '"$odl_control_ip"'/' opnfv_ksgen_settings.yml
 
+  ##replace controller_ip (non-HA only)
+  sed -i 's/^.*controller_ip:.*$/  controller_ip: '"$odl_control_ip"'/' opnfv_ksgen_settings.yml
+
   ##replace foreman site
   next_public_ip=${interface_ip_arr[2]}
   foreman_ip=$next_public_ip
