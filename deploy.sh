@@ -27,6 +27,7 @@ green=`tput setaf 2`
 declare -A interface_arr
 declare -A controllers_ip_arr
 declare -A admin_ip_arr
+declare -A public_ip_arr
 ##END VARS
 
 ##FUNCTIONS
@@ -306,46 +307,74 @@ if [ ! "$output" ]; then
   exit 1
 fi
 
-##find number of interfaces with ip and substitute in VagrantFile
-if_counter=0
-for interface in ${output}; do
+##virtual we only find 1 interface
+if [ $virtual ]; then
+  ##find interface with default gateway
+  this_default_gw=$(ip route | grep default | awk '{print $3}')
+  echo "${blue}Default Gateway: $this_default_gw ${reset}"
+  this_default_gw_interface=$(ip route get $this_default_gw | awk '{print $3}')
 
-  if [ $virtual ]; then
-    if [ "$if_counter" -ge 1 ]; then
-      break
-    fi
-  elif [ "$if_counter" -ge 4 ]; then
-    break
-  fi
-  interface_ip=$(find_ip $interface)
+  ##find interface IP, make sure its valid
+  interface_ip=$(find_ip $this_default_gw_interface)
   if [ ! "$interface_ip" ]; then
-    continue
+      echo "${red}Interface ${this_default_gw_interface} does not have an IP: $interface_ip ! Exiting ${reset}"
+      exit 1
   fi
+
+  ##set variable info
   new_ip=$(next_usable_ip $interface_ip)
   if [ ! "$new_ip" ]; then
-    continue
+      echo "${red} Cannot find next IP on interface ${this_default_gw_interface} new_ip: $new_ip ! Exiting ${reset}"
+      exit 1
   fi
-  interface_arr[$interface]=$if_counter
-  interface_ip_arr[$if_counter]=$new_ip
+  interface=$this_default_gw_interface
+  public_interface=$interface
+  interface_arr[$interface]=2
+  interface_ip_arr[2]=$new_ip
   subnet_mask=$(find_netmask $interface)
-  if [ "$if_counter" -eq 0 ]; then
-    admin_subnet_mask=$subnet_mask
-  elif [ "$if_counter" -eq 1 ]; then
-    private_subnet_mask=$subnet_mask
-    private_short_subnet_mask=$(find_short_netmask $interface)
-  elif [ "$if_counter" -eq 2 ]; then
-    public_subnet_mask=$subnet_mask
-    public_short_subnet_mask=$(find_short_netmask $interface)
-  elif [ "$if_counter" -eq 3 ]; then
-    storage_subnet_mask=$subnet_mask
-  else
-    echo "${red}ERROR: interface counter outside valid range of 0 to 3: $if_counter ! ${reset}"
-    exit 1
-  fi
-  sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
-  ((if_counter++))
-done
+  public_subnet_mask=$subnet_mask
+  public_short_subnet_mask=$(find_short_netmask $interface)
 
+  ##set that interface to be public
+  sed -i 's/^.*eth_replace2.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
+  if_counter=1
+else
+  ##find number of interfaces with ip and substitute in VagrantFile
+  if_counter=0
+  for interface in ${output}; do
+
+    if [ "$if_counter" -ge 4 ]; then
+      break
+    fi
+    interface_ip=$(find_ip $interface)
+    if [ ! "$interface_ip" ]; then
+      continue
+    fi
+    new_ip=$(next_usable_ip $interface_ip)
+    if [ ! "$new_ip" ]; then
+      continue
+    fi
+    interface_arr[$interface]=$if_counter
+    interface_ip_arr[$if_counter]=$new_ip
+    subnet_mask=$(find_netmask $interface)
+    if [ "$if_counter" -eq 0 ]; then
+      admin_subnet_mask=$subnet_mask
+    elif [ "$if_counter" -eq 1 ]; then
+      private_subnet_mask=$subnet_mask
+      private_short_subnet_mask=$(find_short_netmask $interface)
+    elif [ "$if_counter" -eq 2 ]; then
+      public_subnet_mask=$subnet_mask
+      public_short_subnet_mask=$(find_short_netmask $interface)
+    elif [ "$if_counter" -eq 3 ]; then
+      storage_subnet_mask=$subnet_mask
+    else
+      echo "${red}ERROR: interface counter outside valid range of 0 to 3: $if_counter ! ${reset}"
+      exit 1
+    fi
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$new_ip"\"', bridge: '\'"$interface"\'', netmask: '\""$subnet_mask"\"'/' Vagrantfile
+    ((if_counter++))
+  done
+fi
 ##now remove interface config in Vagrantfile for 1 node
 ##if 1, 3, or 4 interfaces set deployment type
 ##if 2 interfaces remove 2nd interface and set deployment type
@@ -354,15 +383,15 @@ if [[ "$if_counter" == 1 || "$if_counter" == 2 ]]; then
     deployment_type="single_network"
     echo "${blue}Single network detected for Virtual deployment...converting to three_network with internal networks! ${reset}"
     private_internal_ip=155.1.2.2
-    public_internal_ip=156.1.2.2
+    admin_internal_ip=156.1.2.2
     private_subnet_mask=255.255.255.0
     private_short_subnet_mask=/24
     interface_ip_arr[1]=$private_internal_ip
-    interface_ip_arr[2]=$public_internal_ip
-    public_subnet_mask=255.255.255.0
-    public_short_subnet_mask=/24
+    interface_ip_arr[0]=$admin_internal_ip
+    admin_subnet_mask=255.255.255.0
+    admin_short_subnet_mask=/24
     sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", ip: '\""$private_internal_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
-    sed -i 's/^.*eth_replace2.*$/  config.vm.network "private_network", virtualbox__intnet: "my_public_network", ip: '\""$public_internal_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
+    sed -i 's/^.*eth_replace0.*$/  config.vm.network "private_network", virtualbox__intnet: "my_admin_network", ip: '\""$admin_internal_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
     remove_vagrant_network eth_replace3
     deployment_type=three_network
   else
@@ -485,8 +514,11 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     ((control_count++))
   done
 
+  next_public_ip=${interface_ip_arr[2]}
+  foreman_ip=$next_public_ip
+
   ##if no dhcp, find all the Admin IPs for nodes in advance
-  if [ $no_dhcp ]; then
+  if [ $virtual ]; then
     sed -i 's/^.*no_dhcp:.*$/no_dhcp: true/' opnfv_ksgen_settings.yml
     nodes=`sed -nr '/nodes:/{:start /workaround/!{N;b start};//p}' opnfv_ksgen_settings.yml | sed -n '/^  [A-Za-z0-9]\+:$/p' | sed 's/\s*//g' | sed 's/://g'`
     compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
@@ -495,7 +527,7 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
     next_admin_ip=${interface_ip_arr[0]}
     type=_admin
     for node in ${nodes}; do
-      next_admin_ip=$(next_usable_ip $next_admin_ip)
+      next_admin_ip=$(next_ip $next_admin_ip)
       if [ ! "$next_admin_ip" ]; then
         echo "${red} Unable to find an unused IP in admin_network for $node ! ${reset}"
         exit 1
@@ -504,8 +536,19 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
         sed -i 's/'"$node$type"'/'"$next_admin_ip"'/g' opnfv_ksgen_settings.yml
       fi
     done
+    if [ $no_dhcp ]; then
+      ##allocate node public IPs
+      for node in ${nodes}; do
+        next_public_ip=$(next_usable_ip $next_public_ip)
+        if [ ! "$next_public_ip" ]; then
+          echo "${red} Unable to find an unused IP in admin_network for $node ! ${reset}"
+          exit 1
+        else
+          public_ip_arr[$node]=$next_public_ip
+        fi
+      done
+    fi
   fi
-
   ##replace global param for controllers_ip_array
   controller_ip_array=${controller_ip_array%?}
   sed -i 's/^.*controllers_ip_array:.*$/  controllers_ip_array: '"$controller_ip_array"'/' opnfv_ksgen_settings.yml
@@ -533,8 +576,6 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   sed -i 's/^.*controller_ip:.*$/  controller_ip: '"$odl_control_ip"'/' opnfv_ksgen_settings.yml
 
   ##replace foreman site
-  next_public_ip=${interface_ip_arr[2]}
-  foreman_ip=$next_public_ip
   sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
   ##replace public vips
   next_public_ip=$(increment_ip $next_public_ip 10)
@@ -709,12 +750,8 @@ for node in ${nodes}; do
              mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
              ;;
     esac
-    if [ $no_dhcp ]; then
-      this_admin_ip=${admin_ip_arr[$node]}
-      sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", ip: '\""$this_admin_ip"\"', netmask: '\""$admin_subnet_mask"\"', bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
-    else
-      sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "public_network", bridge: '\'"$interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
-    fi
+    this_admin_ip=${admin_ip_arr[$node]}
+    sed -i 's/^.*eth_replace'"$if_counter"'.*$/  config.vm.network "private_network", virtualbox__intnet: "my_admin_network", ip: '\""$this_admin_ip"\"', netmask: '\""$admin_subnet_mask"\"', :mac => '\""$mac_addr"\"'/' Vagrantfile
     ((if_counter++))
   done
 
@@ -758,12 +795,14 @@ for node in ${nodes}; do
     ##find public ip info
     mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
     mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
-    next_public_ip=$(next_ip $next_public_ip)
-    if [ ! "$next_public_ip" ]; then
-        echo "{red}ERROR: Could not find public ip for $node ${reset}"
-        exit 1
+    this_public_ip=${public_ip_arr[$node]}
+    
+    if [ $no_dhcp ]; then
+      sed -i 's/^.*eth_replace2.*$/  config.vm.network "public_network", bridge: '\'"$public_interface"\'', :mac => '\""$mac_addr"\"', ip: '\""$this_public_ip"\"', netmask: '\""$public_subnet_mask"\"'/' Vagrantfile
+    else
+      sed -i 's/^.*eth_replace2.*$/  config.vm.network "public_network", bridge: '\'"$public_interface"\'', :mac => '\""$mac_addr"\"'/' Vagrantfile
     fi
-    sed -i 's/^.*eth_replace2.*$/  config.vm.network "private_network", virtualbox__intnet: "my_public_network", :mac => '\""$mac_addr"\"', ip: '\""$next_public_ip"\"', netmask: '\""$public_subnet_mask"\"'/' Vagrantfile
+
     remove_vagrant_network eth_replace3
   elif [ "$if_counter" == 3 ]; then
     deployment_type="three_network"
