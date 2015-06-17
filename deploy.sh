@@ -515,14 +515,15 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   ##therefore we increment the ip by 10 to make sure we have a safe buffer
   next_private_ip=$(increment_ip $next_private_ip 10)
 
-  grep -E '*private_vip|loadbalancer_vip|db_vip|amqp_vip|*admin_vip' opnfv_ksgen_settings.yml | while read -r line ; do
+  private_output=$(grep -E '*private_vip|loadbalancer_vip|db_vip|amqp_vip|*admin_vip' opnfv_ksgen_settings.yml)
+  while read -r line; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
     next_private_ip=$(next_usable_ip $next_private_ip)
     if [ ! "$next_private_ip" ]; then
        printf '%s\n' 'deploy.sh: Unable to find next ip for private network for vip replacement' >&2
        exit 1
     fi
-  done
+  done <<< "$private_output"
 
   ##replace odl_control_ip (non-HA only)
   odl_control_ip=${controllers_ip_arr[0]}
@@ -537,14 +538,15 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
   ##replace public vips
   next_public_ip=$(increment_ip $next_public_ip 10)
-  grep -E '*public_vip' opnfv_ksgen_settings.yml | while read -r line ; do
+  public_output=$(grep -E '*public_vip' opnfv_ksgen_settings.yml)
+  while read -r line; do
     sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
     next_public_ip=$(next_usable_ip $next_public_ip)
     if [ ! "$next_public_ip" ]; then
        printf '%s\n' 'deploy.sh: Unable to find next ip for public network for vip replcement' >&2
        exit 1
     fi
-  done
+  done <<< "$public_output"
 
   ##replace public_network param
   public_subnet=$(find_subnet $next_public_ip $public_subnet_mask)
@@ -667,7 +669,7 @@ for node in ${nodes}; do
   if_counter=0
   for interface in ${output}; do
 
-    if [ $single_network ]; then
+    if [ $no_dhcp ]; then
       if [ "$if_counter" -ge 1 ]; then
         break
       fi
@@ -741,7 +743,11 @@ for node in ${nodes}; do
       fi
       ((controller_count++))
     else
-      next_private_ip=$(increment_ip $next_private_ip 1)
+      next_private_ip=$(next_ip $next_private_ip)
+      if [ ! "$next_private_ip" ]; then
+        echo "{red}ERROR: Could not find private ip for $node ${reset}"
+        exit 1
+      fi
       new_node_ip=$next_private_ip
     fi
     sed -i 's/^.*eth_replace1.*$/  config.vm.network "private_network", virtualbox__intnet: "my_private_network", :mac => '\""$mac_addr"\"', ip: '\""$new_node_ip"\"', netmask: '\""$private_subnet_mask"\"'/' Vagrantfile
@@ -752,7 +758,11 @@ for node in ${nodes}; do
     ##find public ip info
     mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
     mac_addr=$(echo $mac_addr | sed 's/:\|-//g')
-    next_public_ip=$(increment_ip $next_public_ip 1)
+    next_public_ip=$(next_ip $next_public_ip)
+    if [ ! "$next_public_ip" ]; then
+        echo "{red}ERROR: Could not find public ip for $node ${reset}"
+        exit 1
+    fi
     sed -i 's/^.*eth_replace2.*$/  config.vm.network "private_network", virtualbox__intnet: "my_public_network", :mac => '\""$mac_addr"\"', ip: '\""$next_public_ip"\"', netmask: '\""$public_subnet_mask"\"'/' Vagrantfile
     remove_vagrant_network eth_replace3
   elif [ "$if_counter" == 3 ]; then
