@@ -39,6 +39,8 @@ display_usage() {
   echo -e "\n   -base_config : Full path of settings file to parse. Optional.  Will provide a new base settings file rather than the default.  Example:  -base_config /opt/myinventory.yml \n"
   echo -e "\n   -virtual : Node virtualization instead of baremetal. Flag. \n"
   echo -e "\n   -no_dhcp : Do not run dhcp server.  Use this with -virtual when your pc network already has a dhcp server. \n"
+  echo -e "\n   -static_ip_range : static IP range to use when no_dhcp is specified, must at least a 20 IP block.  Format: '192.168.1.1,192.168.1.20' \n"
+  echo -e "\n   -ping_site : site to use to verify IP connectivity from the VM when -virtual is used.  Format: -ping_site www.blah.com \n"
 }
 
 ##find ip of interface
@@ -184,6 +186,14 @@ do
                 no_dhcp="TRUE"
                 shift 1
             ;;
+        -static_ip_range)
+                static_ip_range=$2
+                shift 2
+            ;;
+        -ping_site)
+                ping_site=$2
+                shift 2
+            ;;
         *)
                 display_usage
                 exit 1
@@ -322,10 +332,14 @@ if [ $virtual ]; then
   fi
 
   ##set variable info
-  new_ip=$(next_usable_ip $interface_ip)
-  if [ ! "$new_ip" ]; then
+  if [ ! -z "$no_dhcp" ] && [ ! -z "$static_ip_range" ]; then
+    new_ip=$(echo $static_ip_range | cut -d , -f1)
+  else
+    new_ip=$(next_usable_ip $interface_ip)
+    if [ ! "$new_ip" ]; then
       echo "${red} Cannot find next IP on interface ${this_default_gw_interface} new_ip: $new_ip ! Exiting ${reset}"
       exit 1
+    fi
   fi
   interface=$this_default_gw_interface
   public_interface=$interface
@@ -410,6 +424,22 @@ echo "${blue}Network detected: ${deployment_type}! ${reset}"
 if [ $virtual ]; then
   if [ $no_dhcp ]; then
     sed -i 's/^.*disable_dhcp_flag =.*$/  disable_dhcp_flag = true/' Vagrantfile
+    if [ $static_ip_range ]; then
+      ##verify static range is at least 20 IPs
+      static_ip_range_begin=$(echo $static_ip_range | cut -d , -f1)
+      static_ip_range_end=$(echo $static_ip_range | cut -d , -f2)
+      ##verify range is at least 20 ips
+      ##assumes less than 255 range pool
+      begin_octet=$(echo $static_ip_range_begin | cut -d . -f4)
+      end_octet=$(echo $static_ip_range_end | cut -d . -f4)
+      ip_count=$((end_octet-begin_octet+1))
+      if [ "$ip_count" -lt 20 ]; then
+        echo "${red}Static range is less than 20 ips: ${ip_count}, exiting  ${reset}"
+        exit 1
+      else
+        echo "${blue}Static IP range is size $ip_count ${reset}"
+      fi
+    fi
   fi
 fi
 
@@ -559,14 +589,16 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   next_private_ip=$(increment_ip $next_private_ip 10)
 
   private_output=$(grep -E '*private_vip|loadbalancer_vip|db_vip|amqp_vip|*admin_vip' opnfv_ksgen_settings.yml)
-  while read -r line; do
-    sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
-    next_private_ip=$(next_usable_ip $next_private_ip)
-    if [ ! "$next_private_ip" ]; then
-       printf '%s\n' 'deploy.sh: Unable to find next ip for private network for vip replacement' >&2
-       exit 1
-    fi
-  done <<< "$private_output"
+  if [ ! -z "$private_output" ]; then
+    while read -r line; do
+      sed -i 's/^.*'"$line"'.*$/  '"$line $next_private_ip"'/' opnfv_ksgen_settings.yml
+      next_private_ip=$(next_usable_ip $next_private_ip)
+      if [ ! "$next_private_ip" ]; then
+        printf '%s\n' 'deploy.sh: Unable to find next ip for private network for vip replacement' >&2
+        exit 1
+      fi
+    done <<< "$private_output"
+  fi
 
   ##replace odl_control_ip (non-HA only)
   odl_control_ip=${controllers_ip_arr[0]}
@@ -578,16 +610,22 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   ##replace foreman site
   sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
   ##replace public vips
-  next_public_ip=$(increment_ip $next_public_ip 10)
+  ##no need to do this if virtual and no dhcp
+  if [ -z $no_dhcp ]; then
+    next_public_ip=$(increment_ip $next_public_ip 10)
+  fi
+
   public_output=$(grep -E '*public_vip' opnfv_ksgen_settings.yml)
-  while read -r line; do
-    sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
-    next_public_ip=$(next_usable_ip $next_public_ip)
-    if [ ! "$next_public_ip" ]; then
-       printf '%s\n' 'deploy.sh: Unable to find next ip for public network for vip replcement' >&2
-       exit 1
-    fi
-  done <<< "$public_output"
+  if [ ! -z "$public_output" ]; then
+    while read -r line; do
+      sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
+      next_public_ip=$(next_usable_ip $next_public_ip)
+      if [ ! "$next_public_ip" ]; then
+        printf '%s\n' 'deploy.sh: Unable to find next ip for public network for vip replcement' >&2
+        exit 1
+      fi
+    done <<< "$public_output"
+  fi
 
   ##replace public_network param
   public_subnet=$(find_subnet $next_public_ip $public_subnet_mask)
@@ -626,9 +664,27 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   ##to neutron to use as floating IPs
   ##we should control this subnet, so this range should work .150-200
   ##but generally this is a bad idea and we are assuming at least a /24 subnet here
+  ##if static ip range, then we take the difference of the end range and current ip
+  ## to be the allocation pool
   public_subnet=$(find_subnet $next_public_ip $public_subnet_mask)
-  public_allocation_start=$(increment_subnet $public_subnet 150)
-  public_allocation_end=$(increment_subnet $public_subnet 200)
+  if [ ! -z "$static_ip_range" ]; then
+    begin_octet=$(echo $next_public_ip | cut -d . -f4)
+    end_octet=$(echo $static_ip_range_end | cut -d . -f4)
+    ip_diff=$((end_octet-begin_octet))
+    if [ $ip_diff -le 0 ]; then
+      echo "${red}ip range left for floating range is less than or equal to 0! $ipdiff ${reset}"
+      exit 1
+    else
+      public_allocation_start=$(next_ip $next_public_ip)
+      public_allocation_end=$static_ip_range_end
+      echo "${blue}Neutron Floating IP range: $public_allocation_start to $public_allocation_end ${reset}"
+    fi
+  else
+    public_allocation_start=$(increment_subnet $public_subnet 150)
+    public_allocation_end=$(increment_subnet $public_subnet 200)
+    echo "${blue}Neutron Floating IP range: $public_allocation_start to $public_allocation_end ${reset}"
+    echo "${blue}Foreman VM is up! ${reset}"
+  fi
 
   sed -i 's/^.*public_allocation_start:.*$/  public_allocation_start:'" $public_allocation_start"'/' opnfv_ksgen_settings.yml
   sed -i 's/^.*public_allocation_end:.*$/  public_allocation_end:'" $public_allocation_end"'/' opnfv_ksgen_settings.yml
@@ -791,6 +847,11 @@ for node in ${nodes}; do
 
     ##replace host_ip in vm_nodes_provision with private ip
     sed -i 's/^host_ip=REPLACE/host_ip='$new_node_ip'/' vm_nodes_provision.sh
+
+    ##replace ping site
+    if [ ! -z "$ping_site" ]; then
+      sed -i 's/www.google.com/'$ping_site'/' vm_nodes_provision.sh
+    fi
 
     ##find public ip info
     mac_addr=$(echo -n 00-60-2F; dd bs=1 count=3 if=/dev/random 2>/dev/null |hexdump -v -e '/1 "-%02X"')
