@@ -608,11 +608,13 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   sed -i 's/^.*controller_ip:.*$/  controller_ip: '"$odl_control_ip"'/' opnfv_ksgen_settings.yml
 
   ##replace foreman site
-  sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$next_public_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
+  sed -i 's/^.*foreman_url:.*$/  foreman_url:'" https:\/\/$foreman_ip"'\/api\/v2\//' opnfv_ksgen_settings.yml
   ##replace public vips
   ##no need to do this if virtual and no dhcp
   if [ -z $no_dhcp ]; then
     next_public_ip=$(increment_ip $next_public_ip 10)
+  else
+    next_public_ip=$(next_usable_ip $next_public_ip)
   fi
 
   public_output=$(grep -E '*public_vip' opnfv_ksgen_settings.yml)
