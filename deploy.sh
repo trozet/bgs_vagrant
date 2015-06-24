@@ -620,6 +620,9 @@ elif [[ "$deployment_type" == "multi_network" || "$deployment_type" == "three_ne
   public_output=$(grep -E '*public_vip' opnfv_ksgen_settings.yml)
   if [ ! -z "$public_output" ]; then
     while read -r line; do
+      if echo $line | grep horizon_public_vip; then
+        horizon_public_vip=$next_public_ip
+      fi
       sed -i 's/^.*'"$line"'.*$/  '"$line $next_public_ip"'/' opnfv_ksgen_settings.yml
       next_public_ip=$(next_usable_ip $next_public_ip)
       if [ ! "$next_public_ip" ]; then
@@ -727,6 +730,7 @@ compute_nodes=`echo $nodes | tr " " "\n" | grep -v controller | tr "\n" " "`
 controller_nodes=`echo $nodes | tr " " "\n" | grep controller | tr "\n" " "`
 nodes=${controller_nodes}${compute_nodes}
 controller_count=0
+compute_wait_completed=false
 
 for node in ${nodes}; do
   cd /tmp
@@ -745,7 +749,7 @@ for node in ${nodes}; do
 
   if [ $base_config ]; then
     if ! cp -f $base_config opnfv_ksgen_settings.yml; then
-      echo "{red}ERROR: Unable to copy $base_config to opnfv_ksgen_settings.yml${reset}"
+      echo "${red}ERROR: Unable to copy $base_config to opnfv_ksgen_settings.yml${reset}"
       exit 1
     fi
   fi
@@ -755,6 +759,13 @@ for node in ${nodes}; do
   ##find node type
   node_type=config_nodes_${node}_type
   node_type=$(eval echo \$$node_type)
+
+  ##trozet test make compute nodes wait 20 minutes
+  if [ "$compute_wait_completed" = false ] && [ "$node_type" != "controller" ]; then
+    echo "${blue}Waiting 20 minutes for Control nodes to install before continuing with Compute nodes..."
+    compute_wait_completed=true
+    sleep 1400
+  fi
 
   ##find number of interfaces with ip and substitute in VagrantFile
   output=`ifconfig | grep -E "^[a-zA-Z0-9]+:"| grep -Ev "lo|tun|virbr|vboxnet" | awk '{print $1}' | sed 's/://'`
@@ -906,6 +917,32 @@ for node in ${nodes}; do
 
 done
 
- echo "${blue} All VMs are UP! ${reset}"
+  echo "${blue} All VMs are UP! ${reset}"
+  echo "${blue} Waiting for puppet to complete on the nodes... ${reset}"
+  ##check puppet is complete
+  ##ssh into foreman server, run check to verify puppet is complete
+  pushd /tmp/bgs_vagrant
+  if ! vagrant ssh -c "/opt/khaleesi/run.sh --no-logs --use /vagrant/opnfv_ksgen_settings.yml /opt/khaleesi/playbooks/validate_opnfv-vm.yml"; then
+    echo "${red} Failed to validate puppet completion on nodes ${reset}"
+    exit 1
+  else
+    echo "{$blue} Puppet complete on all nodes! ${reset}"
+  fi
+  popd
 
+  ##add routes back to nodes
+  for node in ${nodes}; do
+    pushd /tmp/$node
+    if ! vagrant ssh -c "route | grep default | grep $this_default_gw"; then
+      echo "${blue} Adding public route back to $node! ${reset}"
+      vagrant ssh -c "route add default gw $this_default_gw"
+    fi
+    popd
+  done
+
+  if [ ! -z "$horizon_public_vip" ]; then
+    echo "${blue} Virtual deployment SUCCESS!! Foreman URL:  http://${foreman_ip}, Horizon URL: http://${horizon_public_vip} ${reset}"
+  else
+    echo "${blue} Virtual deployment SUCCESS!! Foreman URL:  http://${foreman_ip}, Horizon URL: http://${odl_control_ip} ${reset}"
+  fi
 fi
