@@ -129,6 +129,11 @@ if [ $skip_vagrant -eq 0 ]; then
   ###remove virtualbox
   echo "${blue}Removing VirtualBox ${reset}"
   yum -y remove $vboxpkg
+  
+  ###remove vagrant
+  echo "${blue}Removing vagrant ${reset}"
+  vagpkg=`rpm -qa | grep vagrant`
+  yum -y remove $vagpkg
 
 else
   echo "${blue}Skipping Vagrant destroy + Vbox Removal as VirtualBox package is already removed ${reset}"
