@@ -114,8 +114,8 @@ if [ $skip_vagrant -eq 0 ]; then
     echo "${red}Unable to destroy Foreman VM ${reset}"
     echo "${blue}Checking if vagrant was already destroyed and no process is active...${reset}"
     if ps axf | grep vagrant; then
-      echo "${red}Vagrant VM still exists...exiting ${reset}"
-      exit 1
+      echo "${red}Vagrant VM still exists...killing${reset}"
+      kill -9 `ps axf | grep vagrant | awk {'print$1'}`
     else
       echo "${blue}Vagrant process doesn't exist.  Moving on... ${reset}"
     fi
