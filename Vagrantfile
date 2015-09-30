@@ -84,10 +84,10 @@ Vagrant.configure(2) do |config|
   config.ssh.username = 'root'
   config.ssh.password = 'vagrant'
   config.ssh.insert_key = 'true'
-  config.vm.provision "ansible" do |ansible|
-     ansible.playbook = "reload_playbook.yml"
-  end
-  config.vm.provision :shell, :inline => "mount -t vboxsf vagrant /vagrant"
+  #config.vm.provision "ansible" do |ansible|
+  #   ansible.playbook = "reload_playbook.yml"
+  #end
+  #config.vm.provision :shell, :inline => "mount -t vboxsf vagrant /vagrant"
   config.vm.provision :shell, :inline => "route add default gw #{default_gw}"
   if nat_flag
     config.vm.provision :shell, path: "nat_setup.sh"
