@@ -66,7 +66,7 @@ opm_repo: https://github.com/redhat-openstack/openstack-puppet-modules.git
 workaround_vif_plugging: false
 openstack_packstack_rpm: http://REPLACE_ME/brewroot/packages/openstack-puppet-modules/2013.2/9.el6ost/noarch/openstack-puppet-modules-2013.2-9.el6ost.noarch.rpm
 nodes:
-  compute:
+  compute1:
     name: oscompute11.opnfv.com
     hostname: oscompute11.opnfv.com
     short_name: oscompute11
@@ -87,6 +87,27 @@ nodes:
     - puppet
     - rdo
     - neutron
+  compute2:
+    name: oscompute22.opnfv.com
+    hostname: oscompute22.opnfv.com
+    short_name: oscompute22
+    type: compute
+    host_type: baremetal
+    hostgroup: Compute
+    mac_address: "10:23:45:67:89:AD"
+    bmc_ip: 10.4.17.4
+    bmc_mac: "10:23:45:67:88:AD"
+    bmc_user: root
+    bmc_pass: root
+    admin_ip: compute_admin
+    ansible_ssh_pass: "Op3nStack"
+    admin_password: ""
+    groups:
+    - compute
+    - foreman_nodes
+    - puppet
+    - rdo
+    - neutron  
   controller1:
     name: oscontroller1.opnfv.com
     hostname: oscontroller1.opnfv.com
