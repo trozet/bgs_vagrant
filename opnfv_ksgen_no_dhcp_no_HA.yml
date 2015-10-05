@@ -78,7 +78,7 @@ nodes:
     bmc_mac: "10:23:45:67:88:AB"
     bmc_user: root
     bmc_pass: root
-    admin_ip: compute_admin1
+    admin_ip: compute1_admin
     ansible_ssh_pass: "Op3nStack"
     admin_password: ""
     groups:
@@ -99,7 +99,7 @@ nodes:
     bmc_mac: "10:23:45:67:88:AD"
     bmc_user: root
     bmc_pass: root
-    admin_ip: compute_admin1
+    admin_ip: compute2_admin
     ansible_ssh_pass: "Op3nStack"
     admin_password: ""
     groups:
